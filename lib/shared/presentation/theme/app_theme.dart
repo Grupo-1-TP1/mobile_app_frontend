@@ -37,7 +37,7 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: textSecondary.withOpacity(0.3), width: 1),
+          borderSide: BorderSide(color: Color.fromARGB(77, 160, 174, 192), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
