@@ -5,6 +5,7 @@ import 'package:mobile_app_frontend/user_and_profile/presentation/screens/auth_s
 import 'package:mobile_app_frontend/expenses/presentation/screens/expense_screens.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screens.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
+import 'package:mobile_app_frontend/shared/presentation/screens/main_dashboard_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -28,7 +29,7 @@ class AppRouter {
       GoRoute(
         path: '/home',
         name: 'home',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const MainDashboardScreen(),
         routes: [
           GoRoute(
             path: 'dashboard',
