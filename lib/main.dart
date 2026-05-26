@@ -23,6 +23,7 @@ class MyApp extends StatelessWidget {
       title: 'Finio',
       theme: AppTheme.darkTheme,
       routerConfig: AppRouter.router,
+      debugShowCheckedModeBanner: false,
     );
   }
 }
