@@ -1,40 +1,51 @@
 import 'package:equatable/equatable.dart';
 
 class User extends Equatable {
-  final String id;
-  final String email;
-  final String name;
-  final String? profileImageUrl;
-  final DateTime createdAt;
-  final bool hasCompletedSetup;
+  final int id;
+  final String username;
+  final List<String> roles;
 
   const User({
     required this.id,
-    required this.email,
-    required this.name,
-    this.profileImageUrl,
-    required this.createdAt,
-    this.hasCompletedSetup = false,
+    required this.username,
+    required this.roles,
   });
 
+  factory User.fromJson(Map<String, dynamic> json) {
+    final rolesRaw = json['roles'];
+    final roles = <String>[];
+    if (rolesRaw is List) {
+      roles.addAll(rolesRaw.map((e) => e.toString()));
+    } else if (json['role'] != null) {
+      roles.add(json['role'].toString());
+    }
+    return User(
+      id: (json['id'] as num).toInt(),
+      username: json['username'] as String,
+      roles: roles,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
+      'roles': roles,
+    };
+  }
+
   User copyWith({
-    String? id,
-    String? email,
-    String? name,
-    String? profileImageUrl,
-    DateTime? createdAt,
-    bool? hasCompletedSetup,
+    int? id,
+    String? username,
+    List<String>? roles,
   }) {
     return User(
       id: id ?? this.id,
-      email: email ?? this.email,
-      name: name ?? this.name,
-      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-      createdAt: createdAt ?? this.createdAt,
-      hasCompletedSetup: hasCompletedSetup ?? this.hasCompletedSetup,
+      username: username ?? this.username,
+      roles: roles ?? this.roles,
     );
   }
 
   @override
-  List<Object?> get props => [id, email, name, profileImageUrl, createdAt, hasCompletedSetup];
+  List<Object?> get props => [id, username, roles];
 }
