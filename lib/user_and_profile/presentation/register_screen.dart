@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
+import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -23,7 +25,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _subscribeNews = false;
 
   // Placeholder: dejo la referencia al servicio (no implementar aquí)
-  //final userService = UserService();
+
+  bool _loading = false;
+  final _userRepo = AuthDI.userRepository;
 
   // Theme colors (basados en la imagen)
   static const Color _bg = Color(0xFF071826);
@@ -245,48 +249,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   SizedBox(
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        if (!(_acceptedTerms)) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Debes aceptar los términos'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (formKey.currentState!.validate()) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Formulario válido (servicio deshabilitado).',
-                              ),
-                            ),
-                          );
-                          // Llamadas al servicio: solo placeholders aquí (no implementar funciones)
-                          /*
-                          try {
-                            final registerResponse = await userService.registerUser(
-                              _nameController.text,
-                              _emailController.text,
-                              _passwordController.text,
-                            );
-                            if (registerResponse == 200 || registerResponse == 201) {
-                              await userService.loginUser(_emailController.text, _passwordController.text);
-                              // Navegación de ejemplo (ajusta rutas reales)
-                              Navigator.pushReplacementNamed(context, '/home');
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Error al registrar')),
-                              );
-                            }
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
-                            );
-                          }
-                          */
-                        }
-                      },
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              if (!_acceptedTerms) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Debes aceptar los términos'),
+                                  ),
+                                );
+                                return;
+                              }
+                              if (!formKey.currentState!.validate()) return;
+
+                              setState(() => _loading = true);
+                              try {
+                                final username = _emailController.text.trim();
+                                final password = _passwordController.text
+                                    .trim();
+
+                                await _userRepo.signUp(
+                                  username: username,
+                                  password: password,
+                                );
+
+                                if (!context.mounted) return;
+                                context.go('/home');
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error al registrar: $e'),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _loading = false);
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _accent,
                         shape: RoundedRectangleBorder(

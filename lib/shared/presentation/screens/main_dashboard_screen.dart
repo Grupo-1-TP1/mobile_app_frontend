@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/budgets_screen.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
 import 'package:mobile_app_frontend/expenses/presentation/screens/expense_screens.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screens.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
+import 'package:mobile_app_frontend/shared/presentation/screens/home_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
+import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({Key? key}) : super(key: key);
@@ -14,18 +19,35 @@ class MainDashboardScreen extends StatefulWidget {
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   int _selectedIndex = 0;
-
   late List<Widget> _pages;
+  User? _currentUser;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _pages = [
-      const HomeScreen(),
-      const DashboardReportScreen(),
-      const ChatbotAssistantScreen(),
-      const ProfileScreen(),
-    ];
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    final user = await AuthDI.userRepository.getCurrentUser();
+    if (!mounted) return;
+
+    if (user == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    setState(() {
+      _currentUser = user;
+      _pages = [
+        HomeScreen(user: user),
+        const BudgetsScreen(),
+        const SavingsGoalsScreen(),
+        ProfileScreen(user: user),
+      ];
+      _loading = false;
+    });
   }
 
   void _onItemTapped(int index) {
@@ -54,8 +76,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Reportes'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Finio'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'Reportes',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.savings), label: 'Metas de ahorro'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
       ),
@@ -129,7 +154,11 @@ class _TransactionButton extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               label,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
           ],
         ),

@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/shared/presentation/widgets/common_widgets.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+class OldHomeScreen extends StatefulWidget {
+  const OldHomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<OldHomeScreen> createState() => _OldHomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _OldHomeScreenState extends State<OldHomeScreen> {
   int selectedIndex = 0;
 
   @override
@@ -136,136 +136,6 @@ class _ActionButton extends StatelessWidget {
         SizedBox(height: 8),
         Text(label, textAlign: TextAlign.center, style: TextStyle(color: AppTheme.textPrimary, fontSize: 11)),
       ],
-    );
-  }
-}
-
-class RegisterTransactionScreen extends StatefulWidget {
-  final String type;
-  const RegisterTransactionScreen({Key? key, required this.type}) : super(key: key);
-
-  @override
-  State<RegisterTransactionScreen> createState() => _RegisterTransactionScreenState();
-}
-
-class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
-  late String selectedCategory;
-  final amountController = TextEditingController();
-  final descriptionController = TextEditingController();
-  late DateTime selectedDate;
-
-  @override
-  void initState() {
-    super.initState();
-    selectedCategory = 'Comida';
-    selectedDate = DateTime.now();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.darkBg,
-      appBar: AppBar(backgroundColor: AppTheme.darkBg, title: Text('Nueva ${widget.type == 'income' ? 'entrada' : 'transacción'}'), elevation: 0),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('S/ 0.00', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: widget.type == 'income' ? AppTheme.primaryGreen : AppTheme.primaryRed)),
-            SizedBox(height: 24),
-            CustomTextField(label: 'Cantidad', controller: amountController, keyboardType: TextInputType.number),
-            SizedBox(height: 16),
-            Text('Categoría', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: selectedCategory,
-              onChanged: (v) => setState(() => selectedCategory = v!),
-              items: ['Comida', 'Transporte', 'Educación', 'Ocio', 'Otros'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: AppTheme.cardBg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-            SizedBox(height: 16),
-            CustomTextField(label: 'Descripción', controller: descriptionController),
-            SizedBox(height: 16),
-            Text('Fecha', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
-            GestureDetector(
-              onTap: () async {
-                final date = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime(2020), lastDate: DateTime.now());
-                if (date != null) setState(() => selectedDate = date);
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.accentBlue)),
-                child: Text('${selectedDate.day}/${selectedDate.month}/${selectedDate.year}', style: TextStyle(color: AppTheme.textPrimary)),
-              ),
-            ),
-            SizedBox(height: 24),
-            SizedBox(width: double.infinity, height: 52, child: ElevatedButton(onPressed: () => Navigator.pop(context), child: Text('Guardar'))),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    amountController.dispose();
-    descriptionController.dispose();
-    super.dispose();
-  }
-}
-
-class TransactionHistoryScreen extends StatelessWidget {
-  const TransactionHistoryScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.darkBg,
-      appBar: AppBar(backgroundColor: AppTheme.darkBg, title: Text('Historial'), elevation: 0),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: List.generate(10, (i) => _TransactionItem(i)),
-        ),
-      ),
-    );
-  }
-}
-
-class _TransactionItem extends StatelessWidget {
-  final int index;
-  const _TransactionItem(this.index);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(8)),
-            child: Icon([Icons.fastfood, Icons.directions_bus, Icons.school, Icons.sports_bar, Icons.shopping_bag][index % 5], color: AppTheme.primaryGreen),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(['Comida', 'Transporte', 'Educación', 'Ocio', 'Compras'][index % 5], style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
-                Text('${14 - index} de abril de 2026', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-              ],
-            ),
-          ),
-          Text('- S/ ${(index + 1) * 50}', style: TextStyle(color: AppTheme.primaryRed, fontWeight: FontWeight.bold)),
-        ],
-      ),
     );
   }
 }

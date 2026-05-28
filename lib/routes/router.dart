@@ -1,8 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/budgets_screen.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/create_budgets_screen.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/create_saving_goal_screen.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
+import 'package:mobile_app_frontend/expenses/presentation/screens/register_transaction_screen.dart';
+import 'package:mobile_app_frontend/expenses/presentation/screens/transaction_history_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/login_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/register_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/splash_onboarding_screen.dart';
-import 'package:mobile_app_frontend/user_and_profile/presentation/screens/auth_screens.dart';
-import 'package:mobile_app_frontend/expenses/presentation/screens/expense_screens.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screens.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/main_dashboard_screen.dart';
@@ -19,7 +24,7 @@ class AppRouter {
       GoRoute(
         path: '/signup',
         name: 'signup',
-        builder: (context, state) => const SignUpScreen(),
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/login',
@@ -42,9 +47,19 @@ class AppRouter {
             builder: (context, state) => const BudgetsScreen(),
           ),
           GoRoute(
+            path: 'budgets/create',
+            name: 'create_budget',
+            builder: (context, state) => const CreateBudgetScreen(),
+          ),
+          GoRoute(
             path: 'savings',
             name: 'savings',
             builder: (context, state) => const SavingsGoalsScreen(),
+          ),
+          GoRoute(
+            path: 'savings/create',
+            name: 'create_saving_goal',
+            builder: (context, state) => const CreateSavingGoalScreen(),
           ),
           GoRoute(
             path: 'transaction/:type',

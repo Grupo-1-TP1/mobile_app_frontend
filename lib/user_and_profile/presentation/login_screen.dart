@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // View state
   bool _isPasswordVisible = false;
+
+  bool _loading = false;
+  final _userRepo = AuthDI.userRepository;
 
   // Theme colors
   static const Color _bg = Color(0xFF071826);
@@ -79,10 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text(
                     'Ingresa a tu cuenta',
                     textAlign: TextAlign.left,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white54,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.white54),
                   ),
 
                   const SizedBox(height: 32),
@@ -116,8 +118,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Icons.visibility_off,
                           color: Colors.white70,
                         ),
-                        onPressed: () =>
-                            setState(() => _isPasswordVisible = !_isPasswordVisible),
+                        onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
+                        ),
                       ),
                     ),
                     style: const TextStyle(color: Colors.white),
@@ -157,16 +160,38 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (formKey.currentState!.validate()) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Inicio de sesión habilitado'),
-                            ),
-                          );
-                          // Aquí irá la lógica de login cuando implementes userService
-                        }
-                      },
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) return;
+
+                              setState(() => _loading = true);
+                              try {
+                                final username = _emailController.text.trim();
+                                final password = _passwordController.text
+                                    .trim();
+
+                                await _userRepo.logIn(
+                                  username: username,
+                                  password: password,
+                                );
+
+                                if (!context.mounted) return;
+                                context.go('/home');
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Error al iniciar sesión: $e',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) setState(() => _loading = false);
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _accent,
                         shape: RoundedRectangleBorder(

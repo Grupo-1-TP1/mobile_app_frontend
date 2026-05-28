@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
+import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 
 class ChatbotAssistantScreen extends StatefulWidget {
   const ChatbotAssistantScreen({Key? key}) : super(key: key);
@@ -181,7 +182,8 @@ class _AlertCard extends StatelessWidget {
 }
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  final User? user;
+  const ProfileScreen({Key? key, this.user}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
