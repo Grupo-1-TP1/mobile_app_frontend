@@ -21,16 +21,18 @@ class UserRepositoryImpl implements UserRepository {
         baseUrl = baseUrl ??
             const String.fromEnvironment(
               'API_BASE_URL',
-              defaultValue: 'http://localhost:8080',
+              defaultValue: 'https://finio-api.azurewebsites.net',
             );
 
   @override
   Future<User> signUp({
-    required String username,
+    required String name,
+    required String email,
     required String password,
   }) async {
     final payload = {
-      'username': username.trim(),
+      'name': name.trim(),
+      'email': email.trim(),
       'password': password,
       'roles': ['ROLE_USER'],
     };
@@ -49,7 +51,7 @@ class UserRepositoryImpl implements UserRepository {
     }
 
     // After sign-up, sign-in to obtain token & canonical user data
-    return logIn(username: username, password: password);
+    return logIn(username: email, password: password);
   }
 
   @override
@@ -58,7 +60,7 @@ class UserRepositoryImpl implements UserRepository {
     required String password,
   }) async {
     final payload = {
-      'username': username.trim(),
+      'email': username.trim(),
       'password': password,
     };
 

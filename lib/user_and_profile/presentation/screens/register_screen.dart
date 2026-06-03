@@ -264,17 +264,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                               setState(() => _loading = true);
                               try {
-                                final username = _emailController.text.trim();
+                                final name = _nameController.text.trim();
+                                final email = _emailController.text.trim();
                                 final password = _passwordController.text
                                     .trim();
 
                                 await _userRepo.signUp(
-                                  username: username,
+                                  name: name,
+                                  email: email,
                                   password: password,
                                 );
 
                                 if (!context.mounted) return;
-                                context.go('/home');
+                                context.go('/create-account');
                               } catch (e) {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(

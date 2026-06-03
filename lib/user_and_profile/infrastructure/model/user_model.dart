@@ -19,9 +19,13 @@ class UserModel {
     } else if (json['role'] != null) {
       roles.add(json['role'].toString());
     }
+
+    final usernameRaw = json['username'] ?? json['email'] ?? json['userName'];
+    final username = usernameRaw != null ? usernameRaw.toString() : '';
+
     return UserModel(
       id: (json['id'] as num).toInt(),
-      username: json['username'] as String,
+      username: username,
       roles: roles,
     );
   }

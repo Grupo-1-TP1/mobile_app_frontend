@@ -5,8 +5,9 @@ import 'package:mobile_app_frontend/dashboard/presentation/screens/create_saving
 import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
 import 'package:mobile_app_frontend/expenses/presentation/screens/register_transaction_screen.dart';
 import 'package:mobile_app_frontend/expenses/presentation/screens/transaction_history_screen.dart';
-import 'package:mobile_app_frontend/user_and_profile/presentation/login_screen.dart';
-import 'package:mobile_app_frontend/user_and_profile/presentation/register_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/create_account_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/login_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/register_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/splash_onboarding_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screens.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
@@ -30,6 +31,11 @@ class AppRouter {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/create-account',
+        name: 'create-account',
+        builder: (context, state) => const CreateAccountScreen(),
       ),
       GoRoute(
         path: '/home',

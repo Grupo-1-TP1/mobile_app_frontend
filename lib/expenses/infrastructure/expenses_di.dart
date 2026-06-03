@@ -12,7 +12,7 @@ class ExpensesDI {
   static final userLocalDataSource = LocalUserDataSource();
 
   static final remoteDataSource = ExpensesRemoteDataSource(
-    baseUrl: 'http://localhost:8080',
+    baseUrl: 'https://finio-api.azurewebsites.net',
     getAuthToken: userLocalDataSource.getAuthToken,
   );
 
