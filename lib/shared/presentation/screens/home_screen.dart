@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   double get _totalBalance =>
-      _accounts.fold<double>(0, (sum, account) => sum + (account.balance));
+      _accounts.fold<double>(0, (sum, account) => sum + account.balance);
 
   List<_CategorySummary> get _categorySummaries {
     final categoryMap = {
@@ -72,6 +72,37 @@ class _HomeScreenState extends State<HomeScreen> {
             categoryMap[budget.categoryId] ?? 'Categoría ${budget.categoryId}',
         amount: 'S/ ${budget.remainingAmount.toStringAsFixed(2)}',
         color: AppTheme.primaryGreen,
+      );
+    }).toList();
+  }
+
+  List<_BudgetItem> get _budgetItems {
+    final categoryMap = {
+      for (final category in _categories)
+        if (category.id != null) category.id!: category.name,
+    };
+
+    return _budgets.take(3).map((budget) {
+      final categoryName =
+          categoryMap[budget.categoryId] ?? 'Categoría ${budget.categoryId}';
+      final progress = budget.progress.clamp(0.0, 1.0);
+      final isWarning = progress >= 0.8;
+      final isExceeded = progress >= 1.0;
+
+      return _BudgetItem(
+        title: categoryName,
+        spentLabel:
+            'Gastado: S/ ${budget.spent.toStringAsFixed(2)} de S/ ${budget.amount.toStringAsFixed(2)}',
+        remainingLabel:
+            'Disponible: S/ ${budget.remainingAmount.toStringAsFixed(2)}',
+        percentLabel: '${(progress * 100).toStringAsFixed(0)}%',
+        progress: progress,
+        color: isExceeded
+            ? AppTheme.primaryRed
+            : isWarning
+                ? Colors.orange
+                : AppTheme.primaryGreen,
+        exceeded: isExceeded,
       );
     }).toList();
   }
@@ -151,7 +182,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         elevation: 0,
-        actions: [Icon(Icons.notifications, color: AppTheme.primaryGreen)],
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.chat_bubble_outline,
+              color: AppTheme.primaryGreen,
+            ),
+            onPressed: () => context.go('/home/chatbot'),
+          ),
+          IconButton(
+            icon: Icon(Icons.notifications, color: AppTheme.primaryGreen),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -246,6 +289,129 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Presupuestos',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/home/budgets'),
+                  child: const Text('Ver todos'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: CircularProgressIndicator(),
+              )
+            else if (_budgets.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'No hay presupuestos creados',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              )
+            else
+              ..._budgetItems.map(
+                (budget) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: budget.exceeded ? AppTheme.primaryRed : Colors.transparent,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF13283B),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.account_balance_wallet_outlined,
+                                color: budget.color,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    budget.title,
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    budget.spentLabel,
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              budget.percentLabel,
+                              style: TextStyle(
+                                color: budget.color,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: budget.progress,
+                            minHeight: 8,
+                            backgroundColor: Colors.white12,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              budget.color,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          budget.remainingLabel,
+                          style: TextStyle(
+                            color: budget.exceeded
+                                ? AppTheme.primaryRed
+                                : AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
             Align(
               alignment: Alignment.centerLeft,
@@ -368,6 +534,26 @@ class _CategorySummary {
     required this.label,
     required this.amount,
     required this.color,
+  });
+}
+
+class _BudgetItem {
+  final String title;
+  final String spentLabel;
+  final String remainingLabel;
+  final String percentLabel;
+  final double progress;
+  final Color color;
+  final bool exceeded;
+
+  const _BudgetItem({
+    required this.title,
+    required this.spentLabel,
+    required this.remainingLabel,
+    required this.percentLabel,
+    required this.progress,
+    required this.color,
+    required this.exceeded,
   });
 }
 
