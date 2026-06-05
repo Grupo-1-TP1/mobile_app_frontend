@@ -21,7 +21,7 @@ class UserRepositoryImpl implements UserRepository {
         baseUrl = baseUrl ??
             const String.fromEnvironment(
               'API_BASE_URL',
-              defaultValue: 'http://localhost:8080',
+              defaultValue: 'https://finio-api.azurewebsites.net',
             );
 
   @override
