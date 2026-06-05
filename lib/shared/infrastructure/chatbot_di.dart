@@ -4,7 +4,7 @@ import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart
 
 class ChatbotDI {
   static final remoteDataSource = ChatbotRemoteDataSource(
-    baseUrl: 'https://finio-api.azurewebsites.net',
+    baseUrl: 'http://localhost:8080',
     getAuthToken: AuthDI.localDataSource.getAuthToken,
   );
 

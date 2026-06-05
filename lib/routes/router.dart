@@ -5,6 +5,7 @@ import 'package:mobile_app_frontend/dashboard/presentation/screens/create_saving
 import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
 import 'package:mobile_app_frontend/expenses/presentation/screens/register_transaction_screen.dart';
 import 'package:mobile_app_frontend/expenses/presentation/screens/transaction_history_screen.dart';
+import 'package:mobile_app_frontend/shared/presentation/screens/alerts_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/create_account_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/login_screen.dart';

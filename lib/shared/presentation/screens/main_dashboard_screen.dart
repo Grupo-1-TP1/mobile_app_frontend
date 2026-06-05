@@ -9,6 +9,7 @@ import 'package:mobile_app_frontend/shared/presentation/screens/home_screen.dart
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/push_notifications_service.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({Key? key}) : super(key: key);
@@ -19,7 +20,7 @@ class MainDashboardScreen extends StatefulWidget {
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   int _selectedIndex = 0;
-  late List<Widget> _pages;
+  List<Widget> _pages = <Widget>[];
   User? _currentUser;
   bool _loading = true;
 
@@ -30,11 +31,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   Future<void> _loadSession() async {
+  try {
     final user = await AuthDI.userRepository.getCurrentUser();
     if (!mounted) return;
 
     if (user == null) {
-      Navigator.pushReplacementNamed(context, '/login');
+      context.go('/login');
       return;
     }
 
@@ -48,7 +50,23 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       ];
       _loading = false;
     });
+
+    try {
+      await PushNotificationsService.instance.subscribeToUserTopic(user.id);
+    } catch (error) {
+      debugPrint('No se pudo suscribir al tópico: $error');
+    }
+  } catch (error) {
+    debugPrint('Error cargando sesión: $error');
+    if (!mounted) return;
+
+    setState(() {
+      _loading = false;
+    });
+
+    context.go('/login');
   }
+}
 
   void _onItemTapped(int index) {
     setState(() {
@@ -58,6 +76,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading || _pages.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppTheme.darkBg,
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.darkBg,
       body: _pages[_selectedIndex],
@@ -80,7 +107,10 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             icon: Icon(Icons.bar_chart),
             label: 'Reportes',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.savings), label: 'Metas de ahorro'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.savings),
+            label: 'Metas de ahorro',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
       ),
