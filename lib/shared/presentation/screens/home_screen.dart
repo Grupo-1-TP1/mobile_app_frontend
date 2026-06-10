@@ -192,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: Icon(Icons.notifications, color: AppTheme.primaryGreen),
-            onPressed: () {},
+            onPressed: () => context.go('/home/alerts'),
           ),
         ],
       ),

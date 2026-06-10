@@ -31,42 +31,42 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   Future<void> _loadSession() async {
-  try {
-    final user = await AuthDI.userRepository.getCurrentUser();
-    if (!mounted) return;
-
-    if (user == null) {
-      context.go('/login');
-      return;
-    }
-
-    setState(() {
-      _currentUser = user;
-      _pages = [
-        HomeScreen(user: user),
-        const BudgetsScreen(),
-        const SavingsGoalsScreen(),
-        ProfileScreen(user: user),
-      ];
-      _loading = false;
-    });
-
     try {
-      await PushNotificationsService.instance.subscribeToUserTopic(user.id);
+      final user = await AuthDI.userRepository.getCurrentUser();
+      if (!mounted) return;
+
+      if (user == null) {
+        context.go('/login');
+        return;
+      }
+
+      setState(() {
+        _currentUser = user;
+        _pages = [
+          HomeScreen(user: user),
+          const BudgetsScreen(),
+          const SavingsGoalsScreen(),
+          ProfileScreen(user: user),
+        ];
+        _loading = false;
+      });
+
+      try {
+        await PushNotificationsService.instance.subscribeToUserTopic(user.id);
+      } catch (error) {
+        debugPrint('No se pudo suscribir al tópico: $error');
+      }
     } catch (error) {
-      debugPrint('No se pudo suscribir al tópico: $error');
+      debugPrint('Error cargando sesión: $error');
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      context.go('/login');
     }
-  } catch (error) {
-    debugPrint('Error cargando sesión: $error');
-    if (!mounted) return;
-
-    setState(() {
-      _loading = false;
-    });
-
-    context.go('/login');
   }
-}
 
   void _onItemTapped(int index) {
     setState(() {
@@ -79,9 +79,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     if (_loading || _pages.isEmpty) {
       return Scaffold(
         backgroundColor: AppTheme.darkBg,
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
