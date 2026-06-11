@@ -15,7 +15,9 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.0
   flutter_local_notifications: ^17.2.2
-  
+  tflite_flutter: ^0.11.0
+  diacritic: ^0.1.6
+  onnxruntime: ^1.4.1
 
   # State Management & Business Logic
   flutter_bloc: ^8.0.0
@@ -42,4 +44,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/ml_models/
+    - assets/ml_models/classifier_model.tflite
+    - assets/ml_models/word_index.json
+    - assets/ml_models/labels.json
+    - assets/ml_models/recommendation_model.onnx
