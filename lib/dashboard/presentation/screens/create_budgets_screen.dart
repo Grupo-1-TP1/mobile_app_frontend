@@ -6,6 +6,8 @@ import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/budget_recommendation/budget_recommendation_service.dart';
 
 class CreateBudgetScreen extends StatefulWidget {
   const CreateBudgetScreen({Key? key}) : super(key: key);
@@ -20,6 +22,10 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
   bool _loading = true;
   User? _user;
   List<Category> _categories = [];
+  List<Transaction> _transactions = [];
+  bool _mlLoading = false;
+  Map<int, double> _suggestedBudgets = {};
+  Map<int, double> _currentSpent = {};
 
   @override
   void initState() {
@@ -36,20 +42,88 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
       return;
     }
 
+    final transactions = await ExpensesDI.transactionService
+        .getTransactionsByUserId(user.id);
+
     try {
       final cats = await ExpensesDI.categoryService.getCategories();
       if (!mounted) return;
       setState(() {
         _user = user;
         _categories = cats;
+        _transactions = transactions;
         _loading = false;
       });
+      await _loadMLRecommendations();
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error cargando categorías: $e')));
+    }
+  }
+
+  Future<void> _loadMLRecommendations() async {
+    if (_user == null || _categories.isEmpty || _transactions.isEmpty) return;
+
+    setState(() => _mlLoading = true);
+
+    try {
+      if (!budgetRecommendationService.isInitialized) {
+        await budgetRecommendationService.loadModel();
+      }
+
+      final Map<int, double> spentByCategory = {};
+      final Map<int, int> countByCategory = {};
+
+      for (final transaction in _transactions) {
+        final isExpense = transaction.type.toLowerCase() == 'expense';
+        if (!isExpense) continue;
+
+        spentByCategory[transaction.categoryId] =
+            (spentByCategory[transaction.categoryId] ?? 0) + transaction.amount;
+
+        countByCategory[transaction.categoryId] =
+            (countByCategory[transaction.categoryId] ?? 0) + 1;
+      }
+
+      final Map<int, double> suggestions = {};
+
+      for (final category in _categories) {
+        final id = category.id;
+        if (id == null) continue;
+
+        final totalSpent = spentByCategory[id] ?? 0.0;
+        final transactionCount = countByCategory[id] ?? 0;
+        final averageSpent = transactionCount > 0
+            ? totalSpent / transactionCount
+            : 0.0;
+
+        final predicted = await budgetRecommendationService.recommendBudget(
+          categoryId: id,
+          totalSpent: totalSpent,
+          transactionCount: transactionCount,
+          averageSpent: averageSpent,
+        );
+
+        suggestions[id] = predicted;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _suggestedBudgets = suggestions;
+        _currentSpent = spentByCategory;
+      });
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando categorías: $e')),
+        SnackBar(content: Text('Error cargando sugerencias ML: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _mlLoading = false);
+      }
     }
   }
 
@@ -74,10 +148,18 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Sugerencia inteligente', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+                Text(
+                  'Sugerencia inteligente',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
-                  'Basado en 3 meses de datos (ML no implementado aún). Aquí verás la propuesta del modelo.',
+                  _mlLoading
+                      ? 'Calculando sugerencias con el modelo...'
+                      : 'Sugerencias calculadas a partir del historial de gastos.',
                   style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
               ],
@@ -91,8 +173,9 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
               itemBuilder: (context, i) {
                 final c = _categories[i];
                 // Placeholder suggestion numbers
-                final suggested = 100.0 + (i * 50);
-                final current = 80.0 + (i * 20);
+                final categoryId = c.id ?? -1;
+                final suggested = _suggestedBudgets[categoryId] ?? 0.0;
+                final current = _currentSpent[categoryId] ?? 0.0;
                 final diff = suggested - current;
                 final accent = AppTheme.primaryGreen;
                 return Container(
@@ -104,24 +187,54 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(c.name, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+                      Text(
+                        c.name,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: Stack(
                               children: [
-                                Container(height: 8, decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(8))),
+                                Container(
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
                                 FractionallySizedBox(
-                                  widthFactor: (current / (suggested > 0 ? suggested : 1)).clamp(0.0, 1.0),
-                                  child: Container(height: 8, decoration: BoxDecoration(color: AppTheme.primaryGreen, borderRadius: BorderRadius.circular(8))),
+                                  widthFactor:
+                                      (current /
+                                              (suggested > 0 ? suggested : 1))
+                                          .clamp(0.0, 1.0),
+                                  child: Container(
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryGreen,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
                                 ),
                                 Positioned(
                                   left: 0,
                                   right: 0,
                                   child: FractionallySizedBox(
-                                    widthFactor: (suggested / (suggested > 0 ? suggested : 1)).clamp(0.0, 1.0),
-                                    child: Container(height: 8, decoration: BoxDecoration(color: Colors.purple.withOpacity(0.4), borderRadius: BorderRadius.circular(8))),
+                                    widthFactor:
+                                        (suggested /
+                                                (suggested > 0 ? suggested : 1))
+                                            .clamp(0.0, 1.0),
+                                    child: Container(
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -129,9 +242,21 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
                           ),
                           const SizedBox(width: 12),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(color: AppTheme.cardBg, borderRadius: BorderRadius.circular(999)),
-                            child: Text('S/ ${suggested.toStringAsFixed(0)}', style: TextStyle(color: accent, fontWeight: FontWeight.w700)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardBg,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'S/ ${suggested.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -139,8 +264,24 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Actual: S/ ${current.toStringAsFixed(0)}', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                          Text(diff >= 0 ? '+S/ ${diff.toStringAsFixed(0)}' : 'S/ ${diff.toStringAsFixed(0)}', style: TextStyle(color: diff >= 0 ? AppTheme.primaryGreen : AppTheme.primaryRed, fontWeight: FontWeight.w700)),
+                          Text(
+                            'Actual: S/ ${current.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            diff >= 0
+                                ? '+S/ ${diff.toStringAsFixed(0)}'
+                                : 'S/ ${diff.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              color: diff >= 0
+                                  ? AppTheme.primaryGreen
+                                  : AppTheme.primaryRed,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -155,9 +296,26 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ML no implementado todavía')));
+                    for (final category in _categories) {
+                      final id = category.id;
+                      if (id == null) continue;
+                      final value = _suggestedBudgets[id];
+                      if (value != null && value > 0) {
+                        final manualState = context
+                            .findAncestorStateOfType<
+                              _ManualBudgetScreenState
+                            >();
+                        manualState?._controllers[id]?.text = value
+                            .toStringAsFixed(2);
+                      }
+                    }
+                    _tabController.animateTo(1);
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 14)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('Aplicar sugerencia'),
                 ),
               ),
@@ -165,7 +323,10 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _tabController.animateTo(1),
-                  style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.white24), padding: const EdgeInsets.symmetric(vertical: 14)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('Personalizar'),
                 ),
               ),
@@ -180,6 +341,8 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
     return ManualBudgetScreen(
       user: _user!,
       categories: _categories,
+      // Le pasamos el mapa de sugerencias calculadas por el Random Forest de ONNX
+      initialSuggestions: _suggestedBudgets,
     );
   }
 
@@ -196,7 +359,10 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
       backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
         backgroundColor: AppTheme.darkBg,
-        title: Text('Presupuesto manual', style: TextStyle(color: AppTheme.textPrimary)),
+        title: Text(
+          'Presupuesto manual',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
@@ -208,10 +374,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildMLSuggestionTab(),
-          _buildManualTab(),
-        ],
+        children: [_buildMLSuggestionTab(), _buildManualTab()],
       ),
     );
   }
@@ -220,11 +383,13 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen>
 class ManualBudgetScreen extends StatefulWidget {
   final User user;
   final List<Category> categories;
+  final Map<int, double> initialSuggestions;
 
   const ManualBudgetScreen({
     Key? key,
     required this.user,
     required this.categories,
+    required this.initialSuggestions,
   }) : super(key: key);
 
   @override
@@ -239,7 +404,16 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
   void initState() {
     super.initState();
     for (final c in widget.categories) {
-      if (c.id != null) _controllers[c.id!] = TextEditingController();
+      if (c.id != null) {
+        final controller = TextEditingController();
+        
+        final suggestedAmount = widget.initialSuggestions[c.id!];
+        if (suggestedAmount != null && suggestedAmount > 0) {
+          controller.text = suggestedAmount.toStringAsFixed(0);
+        }
+        
+        _controllers[c.id!] = controller;
+      }
     }
   }
 
@@ -266,33 +440,41 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
       final amount = double.tryParse(text.replaceAll(',', '.'));
       if (amount == null || amount <= 0) continue;
 
-      entries.add(Budget(
-        id: null,
-        userId: widget.user.id,
-        categoryId: id,
-        amount: amount,
-        spent: 0.0,
-        startDate: start,
-        endDate: end,
-      ));
+      entries.add(
+        Budget(
+          id: null,
+          userId: widget.user.id,
+          categoryId: id,
+          amount: amount,
+          spent: 0.0,
+          startDate: start,
+          endDate: end,
+        ),
+      );
     }
 
     if (entries.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ingresa al menos un monto para guardar')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa al menos un monto para guardar')),
+      );
       return;
     }
 
     setState(() => _saving = true);
 
     try {
-      final futures = entries.map((b) => ExpensesDI.budgetService.createBudget(b));
+      final futures = entries.map(
+        (b) => ExpensesDI.budgetService.createBudget(b),
+      );
       await Future.wait(futures);
       if (!mounted) return;
       // return true so parent can reload
       context.pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -320,7 +502,13 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
                   ),
                   child: Row(
                     children: [
-                      Text(cat.name, style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+                      Text(
+                        cat.name,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ClipRRect(
@@ -329,7 +517,9 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
                             value: 0.0,
                             minHeight: 6,
                             backgroundColor: Colors.white.withOpacity(0.04),
-                            valueColor: AlwaysStoppedAnimation(AppTheme.primaryGreen),
+                            valueColor: AlwaysStoppedAnimation(
+                              AppTheme.primaryGreen,
+                            ),
                           ),
                         ),
                       ),
@@ -338,7 +528,9 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
                         width: 110,
                         child: TextFormField(
                           controller: controller,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           textAlign: TextAlign.right,
                           style: TextStyle(color: AppTheme.textPrimary),
                           decoration: InputDecoration(
@@ -350,7 +542,10 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
                           ),
                         ),
                       ),
@@ -366,15 +561,28 @@ class _ManualBudgetScreenState extends State<ManualBudgetScreen> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: _saving ? null : _saveBudgets,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 14)),
-                  child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Guardar presupuesto'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Guardar presupuesto'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => context.pop(false),
-                  style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.white24), padding: const EdgeInsets.symmetric(vertical: 14)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: const Text('Buscar sugerencia'),
                 ),
               ),

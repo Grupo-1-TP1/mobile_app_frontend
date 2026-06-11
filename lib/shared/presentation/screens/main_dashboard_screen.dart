@@ -10,6 +10,7 @@ import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 import 'package:mobile_app_frontend/shared/infrastructure/push_notifications_service.dart';
+import 'package:flutter/foundation.dart';
 
 class MainDashboardScreen extends StatefulWidget {
   const MainDashboardScreen({Key? key}) : super(key: key);
@@ -52,7 +53,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       });
 
       try {
-        await PushNotificationsService.instance.subscribeToUserTopic(user.id);
+        if (!kIsWeb) {
+          await PushNotificationsService.instance.subscribeToUserTopic(user.id);
+        }
       } catch (error) {
         debugPrint('No se pudo suscribir al tópico: $error');
       }

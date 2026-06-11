@@ -58,43 +58,39 @@ class PushNotificationsService {
   }
 
   Future<void> _initLocalNotifications() async {
-  if (kIsWeb) return;
+    if (kIsWeb) return;
 
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
-  const iosSettings = DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
-  );
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
 
-  const initSettings = InitializationSettings(
-    android: androidSettings,
-    iOS: iosSettings,
-  );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
 
-  await _localNotifications.initialize(initSettings);
-}
+    await _localNotifications.initialize(initSettings);
+  }
 
   Future<void> _loadStoredNotifications() async {
     notifications.value = await _localDataSource.loadNotifications();
   }
 
   Future<void> subscribeToUserTopic(int userId) async {
-  try {
+    if (kIsWeb) return;
     await _messaging.subscribeToTopic('user_$userId');
-  } catch (error) {
-    debugPrint('subscribeToUserTopic failed: $error');
   }
-}
 
-Future<void> unsubscribeFromUserTopic(int userId) async {
-  try {
+  Future<void> unsubscribeFromUserTopic(int userId) async {
+    if (kIsWeb) return;
     await _messaging.unsubscribeFromTopic('user_$userId');
-  } catch (error) {
-    debugPrint('unsubscribeFromUserTopic failed: $error');
   }
-}
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     final notification = AppNotification.fromRemoteMessage(message);

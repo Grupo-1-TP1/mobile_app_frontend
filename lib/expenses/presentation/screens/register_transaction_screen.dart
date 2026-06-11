@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_app_frontend/expenses/application/services/account_service.dart';
-import 'package:mobile_app_frontend/expenses/application/services/category_service.dart';
+import 'dart:async';
 import 'package:mobile_app_frontend/expenses/domain/entities/account.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
@@ -9,14 +8,13 @@ import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/shared/presentation/widgets/common_widgets.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/ml_service.dart';
 
 class RegisterTransactionScreen extends StatefulWidget {
   final String type;
 
-  const RegisterTransactionScreen({
-    Key? key,
-    required this.type,
-  }) : super(key: key);
+  const RegisterTransactionScreen({Key? key, required this.type})
+    : super(key: key);
 
   @override
   State<RegisterTransactionScreen> createState() =>
@@ -26,6 +24,7 @@ class RegisterTransactionScreen extends StatefulWidget {
 class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
   final amountController = TextEditingController();
   final descriptionController = TextEditingController();
+  Timer? _debounce;
 
   User? _currentUser;
   List<Account> _accounts = [];
@@ -42,6 +41,11 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
   void initState() {
     super.initState();
     _loadData();
+    // Asegura la inicialización en caliente de LiteRT
+    if (!mlService.isInitialized) {
+      mlService.loadModels().then((_) => setState(() {}));
+    }
+    descriptionController.addListener(_onDescriptionChanged);
   }
 
   Future<void> _loadData() async {
@@ -54,7 +58,9 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
         return;
       }
 
-      final accounts = await ExpensesDI.accountService.getAccountsByUserId(user.id);
+      final accounts = await ExpensesDI.accountService.getAccountsByUserId(
+        user.id,
+      );
       final categories = await ExpensesDI.categoryService.getCategories();
 
       if (!mounted) return;
@@ -64,16 +70,36 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
         _accounts = accounts;
         _categories = categories;
         _selectedAccountId = accounts.isNotEmpty ? accounts.first.id : null;
-        _selectedCategoryId = categories.isNotEmpty ? categories.first.id : null;
+        _selectedCategoryId = categories.isNotEmpty
+            ? categories.first.id
+            : null;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando datos: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error cargando datos: $e')));
     }
+  }
+
+  void _onDescriptionChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 700), () async {
+      final text = descriptionController.text.trim();
+      if (text.length < 3) return;
+      if (!mlService.isInitialized) return;
+      try {
+        final predictedId = await mlService.classifyCategory(text);
+        if (_categories.any((c) => c.id == predictedId)) {
+          if (!mounted) return;
+          setState(() => _selectedCategoryId = predictedId);
+        }
+      } catch (_) {
+        /* ignorar errores de ML */
+      }
+    });
   }
 
   Future<void> _saveTransaction() async {
@@ -86,23 +112,23 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
     }
 
     if (_currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay sesión activa')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No hay sesión activa')));
       return;
     }
 
     if (_selectedAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una cuenta')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecciona una cuenta')));
       return;
     }
 
     if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una categoría')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecciona una categoría')));
       return;
     }
 
@@ -132,9 +158,9 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -214,6 +240,7 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
+                    key: ValueKey(_selectedCategoryId),
                     value: _selectedCategoryId,
                     onChanged: (v) => setState(() => _selectedCategoryId = v),
                     items: _categories
@@ -297,6 +324,8 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    descriptionController.removeListener(_onDescriptionChanged);
     amountController.dispose();
     descriptionController.dispose();
     super.dispose();
