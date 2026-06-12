@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/budgets_screen.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
-import 'package:mobile_app_frontend/expenses/presentation/screens/expense_screens.dart';
-import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screens.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/home_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
@@ -45,7 +44,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         _currentUser = user;
         _pages = [
           HomeScreen(user: user),
-          const BudgetsScreen(),
+          const DashboardReportScreen(),
           const SavingsGoalsScreen(),
           ProfileScreen(user: user),
         ];

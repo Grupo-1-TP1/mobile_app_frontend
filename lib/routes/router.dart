@@ -11,7 +11,7 @@ import 'package:mobile_app_frontend/user_and_profile/presentation/screens/create
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/login_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/register_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/splash_onboarding_screen.dart';
-import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screens.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/main_dashboard_screen.dart';
 
