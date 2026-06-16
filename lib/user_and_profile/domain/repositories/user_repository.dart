@@ -1,3 +1,4 @@
+import 'package:mobile_app_frontend/user_and_profile/domain/entities/profile.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 
 abstract class UserRepository {
@@ -17,4 +18,7 @@ abstract class UserRepository {
   Future<User?> getCurrentUser();
 
   Future<bool> recoverPassword(String email);
+
+  Future<Profile> getProfileByUserId(int userId);
+  Future<void> updateProfile(Profile profile);
 }

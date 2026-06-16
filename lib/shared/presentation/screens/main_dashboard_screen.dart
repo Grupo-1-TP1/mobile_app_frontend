@@ -3,8 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/budgets_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
-import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_alerts_profile.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/home_screen.dart';
+import 'package:mobile_app_frontend/shared/presentation/screens/profile_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
@@ -46,7 +46,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           HomeScreen(user: user),
           const DashboardReportScreen(),
           const SavingsGoalsScreen(),
-          ProfileScreen(user: user),
+          ProfileScreen(),
         ];
         _loading = false;
       });

@@ -8,7 +8,7 @@ class MLService {
   Map<String, int> _wordIndex = {};
   List<int> _labelIds = [];
   
-  // 🔥 CORRECCIÓN 1: Forzar los 12 espacios exactos configurados en Python (max_len = 12)
+
   int _inputLength = 12; 
   bool _isInitialized = false;
 
@@ -20,10 +20,10 @@ class MLService {
         'assets/ml_models/classifier_model.tflite',
       );
 
-      // Verificación dinámica del shape del tensor de entrada
+
       final inputShape = _interpreter!.getInputTensor(0).shape;
       if (inputShape.isNotEmpty) {
-        // Si la forma es [1, 12], tomamos el segundo índice
+
         _inputLength = inputShape.length >= 2 ? inputShape[1] : inputShape[0];
       }
 

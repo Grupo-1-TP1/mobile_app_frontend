@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:mobile_app_frontend/user_and_profile/domain/entities/profile.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/repositories/user_repository.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/data_sources/user_local_data_source.dart';
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/model/profile_model.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/model/user_model.dart';
 
 class UserRepositoryImpl implements UserRepository {
@@ -106,28 +108,55 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
-  Future<User> updateProfile({
-    required String userId,
-    String? name,
-    String? profileImageUrl,
-  }) async {
-    final current = await localDataSource.getUser();
-    if (current == null) throw Exception('User not found');
+  Future<bool> recoverPassword(String email) async {
+    return true;
+  }
+  
+  @override
+  Future<Profile> getProfileByUserId(int userId) async {
+    // 🔑 Recuperamos el token de Azure almacenado localmente en la sesión activa
+    final token = localDataSource.getAuthToken();
 
-    if (current.id.toString() != userId) {
-      throw Exception('User id mismatch');
-    }
-
-    final updated = current.copyWith(
-      username: (name != null && name.trim().isNotEmpty) ? name.trim() : current.username,
+    final response = await client.get(
+      Uri.parse('$baseUrl/api/v1/profiles/user/$userId'),
+      headers: {
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
     );
 
-    await localDataSource.saveUser(updated);
-    return updated;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to load profile from Azure: ${response.statusCode} ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    // Manejo seguro de la respuesta por si viene envuelta en un nodo "data"
+    final Map<String, dynamic> data = (decoded is Map<String, dynamic> && decoded['data'] is Map<String, dynamic>)
+        ? decoded['data'] as Map<String, dynamic>
+        : (decoded as Map<String, dynamic>);
+
+    final profileModel = ProfileModel.fromJson(data);
+    return profileModel.toEntity();
   }
 
   @override
-  Future<bool> recoverPassword(String email) async {
-    return true;
+  Future<void> updateProfile(Profile profile) async {
+    final token = localDataSource.getAuthToken();
+    final profileModel = ProfileModel.fromEntity(profile);
+
+    final response = await client.put(
+      Uri.parse('$baseUrl/api/v1/profiles/${profile.id}'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(profileModel.toJson()),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to update profile in Azure: ${response.statusCode} ${response.body}');
+    }
   }
 }
