@@ -342,11 +342,6 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryGreen,
-        onPressed: () {},
-        child: const Icon(Icons.add, color: Colors.black),
-      ),
     );
   }
 
