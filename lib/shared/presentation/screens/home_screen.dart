@@ -7,7 +7,7 @@ import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
-import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart'; // Importante para tu repositorio de usuario
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -25,13 +25,17 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Budget> _budgets = [];
   bool _loading = true;
 
-  // 🔥 NUEVA VARIABLE: Guardará el nombre real extraído del Profile de Azure
   String _displayName = 'Usuario';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -46,7 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.user.id,
       );
 
-      // 🎯 CONEXIÓN CON EL PERFIL: Obtenemos el profile para sacar el campo string 'name'
       String profileName = widget.user.username;
       try {
         final profile = await AuthDI.userRepository.getProfileByUserId(

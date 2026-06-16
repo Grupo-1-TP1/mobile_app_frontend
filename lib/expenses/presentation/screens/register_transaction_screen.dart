@@ -149,7 +149,6 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
       );
 
       await ExpensesDI.transactionService.createTransaction(transaction);
-
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
