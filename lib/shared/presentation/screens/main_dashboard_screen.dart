@@ -88,13 +88,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.darkBg,
       body: _pages[_selectedIndex],
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(
-              backgroundColor: AppTheme.primaryGreen,
-              onPressed: () => _showTransactionMenu(context),
-              child: const Icon(Icons.add, color: Colors.black),
-            )
-          : null,
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: AppTheme.cardBg,
         selectedItemColor: AppTheme.primaryGreen,
@@ -113,85 +106,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
         ],
-      ),
-    );
-  }
-
-  void _showTransactionMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.cardBg,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _TransactionButton(
-              icon: Icons.arrow_upward,
-              label: 'Registrar Ingreso',
-              color: Colors.green,
-              onPressed: () {
-                Navigator.pop(context);
-                context.push('/home/transaction/income');
-              },
-            ),
-            const SizedBox(height: 12),
-            _TransactionButton(
-              icon: Icons.arrow_downward,
-              label: 'Registrar Gasto',
-              color: Colors.red,
-              onPressed: () {
-                Navigator.pop(context);
-                context.push('/home/transaction/expense');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TransactionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onPressed;
-
-  const _TransactionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: AppTheme.darkBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color, width: 2),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
