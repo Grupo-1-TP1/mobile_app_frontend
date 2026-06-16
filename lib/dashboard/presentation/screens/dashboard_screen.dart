@@ -13,29 +13,27 @@ class DashboardReportScreen extends StatefulWidget {
 
 class _DashboardReportScreenState extends State<DashboardReportScreen> {
   bool _loading = true;
-  String _selectedMonthStr = 'Jun 2026'; // Mes por defecto alineado a tus datos
+  String _selectedMonthStr = 'Jun 2026';
   int _selectedMonthInt = 6;
   int _selectedYearInt = 2026;
 
-  // Contenedores de datos reales provenientes del REST API
   List<dynamic> _allTransactions = [];
-  List<dynamic> _allBudgets = [];
 
-  // Variables de negocio calculadas en tiempo real
   double _totalIngresos = 0.0;
   double _totalGastos = 0.0;
   int _porcentajeAhorro = 0;
 
   List<PieChartSectionData> _pieSections = [];
   List<Map<String, dynamic>> _categoryDataList = [];
-  Map<String, List<double>> _evolutionData = {
-    'Oct': [0, 0],
-    'Ene': [0, 0],
-    'Mar': [0, 0],
-    'Jun': [0, 0],
-  };
 
-  // Diccionarios oficiales de tu Tesis (Ids del 1 al 6 de tu Azure DB)
+  List<FlSpot> _ingresosSpots = [];
+  List<FlSpot> _gastosSpots = [];
+  double _minX = 0;
+  double _maxX = 0;
+  double _minY = 0;
+  double _maxY = 0;
+  Map<int, String> _monthLabels = {};
+
   final Map<int, String> _categoryNames = {
     1: "Alimentación",
     2: "Transporte",
@@ -58,6 +56,22 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
     8: Colors.grey,
   };
 
+  final List<String> _monthNames = [
+    '',
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -69,18 +83,13 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       final user = await AuthDI.userRepository.getCurrentUser();
       if (user == null) return;
 
-      // Consumimos tus dos endpoints HTTP en paralelo
       final txs = await ExpensesDI.transactionService.getTransactionsByUserId(
         user.id,
       );
-      final budgets = await ExpensesDI.budgetService.getBudgetsByUserId(
-        user.id,
-      );
-
       _allTransactions = txs;
-      _allBudgets = budgets;
 
       _calculateReportMetrics();
+      _calculateEvolutionData();
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -95,16 +104,12 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
     double gastosMes = 0.0;
     final Map<int, double> gastosPorCat = {};
 
-    // 1. Procesar la lista de Objetos 'Transaction' reales de tu dominio
     for (final tx in _allTransactions) {
-      // 🔥 CORRECCIÓN: Accedemos directamente a las propiedades del objeto con el punto (.)
-      // Ya no usamos tx['transactionDate'] ni tx['type']
       final date = tx.transactionDate;
       final isExpense = tx.type.toLowerCase() == 'expense';
       final isIncome = tx.type.toLowerCase() == 'income';
       final amount = tx.amount.toDouble();
 
-      // Filtrar los datos para el mes seleccionado en el Dropdown de tu tesis
       if (date.month == _selectedMonthInt && date.year == _selectedYearInt) {
         if (isIncome) ingresosMes += amount;
         if (isExpense) {
@@ -115,7 +120,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       }
     }
 
-    // 2. Calcular porcentaje de ahorro real de la Tesis
     if (ingresosMes > 0) {
       _porcentajeAhorro = (((ingresosMes - gastosMes) / ingresosMes) * 100)
           .round()
@@ -124,7 +128,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       _porcentajeAhorro = 0;
     }
 
-    // 3. Generar Estructuras para fl_chart (Dona) y Leyendas cruzando con los Budgets
     final List<PieChartSectionData> tempSections = [];
     final List<Map<String, dynamic>> tempCategoryData = [];
 
@@ -132,23 +135,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       final name = _categoryNames[catId] ?? "Otros";
       final color = _categoryColors[catId] ?? Colors.grey;
       final double pct = gastosMes > 0 ? (monto / gastosMes) * 100 : 0.0;
-
-      // 🔥 CORRECCIÓN: Buscamos en la lista de presupuestos usando también la notación de objetos (.categoryId)
-      dynamic budgetMatch;
-      try {
-        budgetMatch = _allBudgets.firstWhere((b) => b.categoryId == catId);
-      } catch (_) {
-        budgetMatch =
-            null; // Si no encuentra un presupuesto para esa categoría, se asigna null de forma segura
-      }
-
-      // Extraemos los montos asignados y gastados de tu entidad Budget de Azure
-      double budgetLimit = budgetMatch != null
-          ? budgetMatch.amount.toDouble()
-          : 0.0;
-      double budgetSpent = budgetMatch != null
-          ? budgetMatch.spent.toDouble()
-          : monto;
 
       tempSections.add(
         PieChartSectionData(color: color, value: monto, title: '', radius: 14),
@@ -159,9 +145,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
         'name': name,
         'pct': '${pct.toStringAsFixed(0)}%',
         'color': color,
-        'actual': budgetSpent,
-        'sugerido': budgetLimit,
-        'cambio': budgetLimit - budgetSpent,
       });
     });
 
@@ -181,6 +164,91 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       _totalGastos = gastosMes;
       _pieSections = tempSections;
       _categoryDataList = tempCategoryData;
+    });
+  }
+
+  void _calculateEvolutionData() {
+    if (_allTransactions.isEmpty) return;
+
+    Map<int, Map<String, double>> monthlyTotals = {};
+    Set<int> monthsPresent = {};
+
+    for (final tx in _allTransactions) {
+      final date = tx.transactionDate;
+      final month = date.month;
+      final amount = tx.amount.toDouble();
+      final isIncome = tx.type.toLowerCase() == 'income';
+      final isExpense = tx.type.toLowerCase() == 'expense';
+
+      monthsPresent.add(month);
+
+      if (!monthlyTotals.containsKey(month)) {
+        monthlyTotals[month] = {'income': 0.0, 'expense': 0.0};
+      }
+
+      if (isIncome)
+        monthlyTotals[month]!['income'] =
+            monthlyTotals[month]!['income']! + amount;
+      if (isExpense)
+        monthlyTotals[month]!['expense'] =
+            monthlyTotals[month]!['expense']! + amount;
+    }
+
+    List<int> sortedMonths = monthsPresent.toList()..sort();
+    List<FlSpot> incomeSpots = [];
+    List<FlSpot> expenseSpots = [];
+    Map<int, String> labels = {};
+    double maxVal = 0;
+
+    if (sortedMonths.length == 1) {
+      int unicoMes = sortedMonths[0];
+      double income = monthlyTotals[unicoMes]?['income'] ?? 0.0;
+      double expense = monthlyTotals[unicoMes]?['expense'] ?? 0.0;
+      maxVal = income > expense ? income : expense;
+
+      incomeSpots.add(FlSpot(0, income));
+      incomeSpots.add(FlSpot(1, income));
+
+      expenseSpots.add(FlSpot(0, expense));
+      expenseSpots.add(FlSpot(1, expense));
+
+      labels[0] = _monthNames[unicoMes];
+      labels[1] = '';
+
+      setState(() {
+        _ingresosSpots = incomeSpots;
+        _gastosSpots = expenseSpots;
+        _minX = 0;
+        _maxX = 1;
+        _minY = 0;
+        _maxY = maxVal > 0 ? maxVal * 1.3 : 100.0;
+        _monthLabels = labels;
+      });
+      return;
+    }
+
+    for (int i = 0; i < sortedMonths.length; i++) {
+      int month = sortedMonths[i];
+      double x = i.toDouble();
+      double income = monthlyTotals[month]?['income'] ?? 0.0;
+      double expense = monthlyTotals[month]?['expense'] ?? 0.0;
+
+      incomeSpots.add(FlSpot(x, income));
+      expenseSpots.add(FlSpot(x, expense));
+      labels[i] = _monthNames[month];
+
+      if (income > maxVal) maxVal = income;
+      if (expense > maxVal) maxVal = expense;
+    }
+
+    setState(() {
+      _ingresosSpots = incomeSpots;
+      _gastosSpots = expenseSpots;
+      _minX = 0;
+      _maxX = (sortedMonths.length - 1).toDouble();
+      _minY = 0;
+      _maxY = maxVal > 0 ? (maxVal * 1.2).ceilToDouble() : 100.0;
+      _monthLabels = labels;
     });
   }
 
@@ -209,7 +277,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 📊 1. Fila de Tarjetas KPI
             Row(
               children: [
                 Expanded(
@@ -249,7 +316,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 🍩 2. Sección del Gráfico de Dona Integrado
             Row(
               children: [
                 Expanded(
@@ -329,122 +395,92 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 🔑 3. LISTA DE DETALLE DE AJUSTES (Cruce de Categoría, Actual y Sugerido de tu Figma)
             Text(
-              'Ajuste recomendado para el mes',
+              'Evolución mensual',
               style: TextStyle(
                 color: AppTheme.textPrimary,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _categoryDataList.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, idx) {
-                final item = _categoryDataList[idx];
-                final double actual = item['actual'];
-                final double sugerido = item['sugerido'];
-                final double cambio = item['cambio'];
-
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            item['name'],
-                            style: TextStyle(
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Text(
-                                'S/ ${actual.toStringAsFixed(0)}',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'S/ ${sugerido.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  color: Colors.purpleAccent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cambio >= 0
-                                      ? AppTheme.primaryGreen.withOpacity(0.1)
-                                      : AppTheme.primaryRed.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  cambio >= 0
-                                      ? '+S/${cambio.toStringAsFixed(0)}'
-                                      : '-S/${cambio.abs().toStringAsFixed(0)}',
-                                  style: TextStyle(
-                                    color: cambio >= 0
-                                        ? AppTheme.primaryGreen
-                                        : AppTheme.primaryRed,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+            const SizedBox(height: 16),
+            Container(
+              height: 200,
+              padding: const EdgeInsets.only(right: 16, top: 16),
+              child: _ingresosSpots.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No hay datos",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    )
+                  : LineChart(
+                      LineChartData(
+                        gridData: FlGridData(show: false),
+                        titlesData: FlTitlesData(
+                          show: true,
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              interval: 1,
+                              getTitlesWidget: (value, meta) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(
+                                    _monthLabels[value.toInt()] ?? '',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 10,
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
+                                );
+                              },
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          topTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        minX: _minX,
+                        maxX: _maxX,
+                        minY: _minY,
+                        maxY: _maxY,
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: _ingresosSpots,
+                            isCurved: true,
+                            color: AppTheme.primaryGreen,
+                            barWidth: 3,
+                            isStrokeCapRound: true,
+                            dotData: FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: AppTheme.primaryGreen.withOpacity(0.1),
+                            ),
+                          ),
+                          LineChartBarData(
+                            spots: _gastosSpots,
+                            isCurved: true,
+                            color: AppTheme.primaryRed,
+                            barWidth: 3,
+                            isStrokeCapRound: true,
+                            dotData: FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              color: AppTheme.primaryRed.withOpacity(0.1),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      // Barras de progreso superpuestas: Azul (Actual) y Morada (Sugerido por ML)
-                      Stack(
-                        children: [
-                          Container(
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.white10,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: sugerido > 0
-                                ? (actual / sugerido).clamp(0.0, 1.0)
-                                : 0.0,
-                            child: Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: item['color'],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+                    ),
             ),
           ],
         ),
