@@ -7,6 +7,7 @@ import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart'; // Importante para tu repositorio de usuario
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -23,6 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Account> _accounts = [];
   List<Budget> _budgets = [];
   bool _loading = true;
+
+  // 🔥 NUEVA VARIABLE: Guardará el nombre real extraído del Profile de Azure
+  String _displayName = 'Usuario';
 
   @override
   void initState() {
@@ -42,6 +46,19 @@ class _HomeScreenState extends State<HomeScreen> {
         widget.user.id,
       );
 
+      // 🎯 CONEXIÓN CON EL PERFIL: Obtenemos el profile para sacar el campo string 'name'
+      String profileName = widget.user.username;
+      try {
+        final profile = await AuthDI.userRepository.getProfileByUserId(
+          widget.user.id,
+        );
+        if (profile.name.isNotEmpty) {
+          profileName = profile.name;
+        }
+      } catch (e) {
+        debugPrint('No se pudo cargar el name de Profile, usando username: $e');
+      }
+
       if (!mounted) return;
 
       setState(() {
@@ -49,12 +66,22 @@ class _HomeScreenState extends State<HomeScreen> {
         _categories = categories;
         _accounts = accounts;
         _budgets = budgets;
+        _displayName = profileName;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'U';
+    final nameParts = name.trim().split(' ');
+    if (nameParts.length >= 2) {
+      return '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
+    }
+    return nameParts[0][0].toUpperCase();
   }
 
   double get _totalBalance =>
@@ -100,8 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
         color: isExceeded
             ? AppTheme.primaryRed
             : isWarning
-                ? Colors.orange
-                : AppTheme.primaryGreen,
+            ? Colors.orange
+            : AppTheme.primaryGreen,
         exceeded: isExceeded,
       );
     }).toList();
@@ -173,15 +200,53 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
-        backgroundColor: AppTheme.cardBg,
-        title: Text(
-          widget.user.username,
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        backgroundColor: AppTheme.darkBg,
         elevation: 0,
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: const Color(
+                0xFF13283B,
+              ), // El tono azul oscuro de tu paleta
+              child: Text(
+                _getInitials(
+                  _displayName,
+                ),
+                style: const TextStyle(
+                  color: AppTheme.primaryGreen, // Texto verde como en el diseño
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(
+              width: 12,
+            ), 
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hola,',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _displayName,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(
@@ -191,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => context.go('/home/chatbot'),
           ),
           IconButton(
-            icon: Icon(Icons.notifications, color: AppTheme.primaryGreen),
+            icon: const Icon(Icons.notifications, color: AppTheme.primaryGreen),
             onPressed: () => context.go('/home/alerts'),
           ),
         ],
@@ -210,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Saldo',
+                    'Balance del mes', // Alineado al nuevo título del Figma
                     style: TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
@@ -235,32 +300,32 @@ class _HomeScreenState extends State<HomeScreen> {
                             _InfoItem('Cargando', '...', AppTheme.accentBlue),
                           ]
                         : _categorySummaries.isEmpty
-                            ? [
-                                _InfoItem(
-                                  'Sin datos',
-                                  'S/ 0.00',
-                                  AppTheme.primaryGreen,
+                        ? [
+                            _InfoItem(
+                              'Sin datos',
+                              'S/ 0.00',
+                              AppTheme.primaryGreen,
+                            ),
+                            _InfoItem(
+                              'Sin datos',
+                              'S/ 0.00',
+                              AppTheme.primaryRed,
+                            ),
+                            _InfoItem(
+                              'Sin datos',
+                              'S/ 0.00',
+                              AppTheme.accentBlue,
+                            ),
+                          ]
+                        : _categorySummaries
+                              .map(
+                                (item) => _InfoItem(
+                                  item.label,
+                                  item.amount,
+                                  item.color,
                                 ),
-                                _InfoItem(
-                                  'Sin datos',
-                                  'S/ 0.00',
-                                  AppTheme.primaryRed,
-                                ),
-                                _InfoItem(
-                                  'Sin datos',
-                                  'S/ 0.00',
-                                  AppTheme.accentBlue,
-                                ),
-                              ]
-                            : _categorySummaries
-                                .map(
-                                  (item) => _InfoItem(
-                                    item.label,
-                                    item.amount,
-                                    item.color,
-                                  ),
-                                )
-                                .toList(),
+                              )
+                              .toList(),
                   ),
                 ],
               ),
@@ -331,7 +396,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: AppTheme.cardBg,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: budget.exceeded ? AppTheme.primaryRed : Colors.transparent,
+                        color: budget.exceeded
+                            ? AppTheme.primaryRed
+                            : Colors.transparent,
                         width: 1.2,
                       ),
                     ),

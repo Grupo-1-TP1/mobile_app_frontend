@@ -99,7 +99,10 @@ class _ChatbotAssistantScreenState extends State<ChatbotAssistantScreen> {
       _sessionId = _uuid.v4();
       messages
         ..clear()
-        ..add({'text': 'Hola, soy Finio. ¿Cómo puedo ayudarte hoy?', 'isUser': false});
+        ..add({
+          'text': 'Hola, soy Finio. ¿Cómo puedo ayudarte hoy?',
+          'isUser': false,
+        });
     });
 
     _scrollToBottom();
@@ -156,8 +159,9 @@ class _ChatbotAssistantScreenState extends State<ChatbotAssistantScreen> {
                 final isUser = msg['isUser'] == true;
 
                 return Align(
-                  alignment:
-                      isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isUser
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(
@@ -168,9 +172,7 @@ class _ChatbotAssistantScreenState extends State<ChatbotAssistantScreen> {
                       maxWidth: MediaQuery.of(context).size.width * 0.78,
                     ),
                     decoration: BoxDecoration(
-                      color: isUser
-                          ? AppTheme.primaryGreen
-                          : AppTheme.cardBg,
+                      color: isUser ? AppTheme.primaryGreen : AppTheme.cardBg,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
@@ -185,50 +187,68 @@ class _ChatbotAssistantScreenState extends State<ChatbotAssistantScreen> {
               },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: messageController,
-                    style: TextStyle(color: AppTheme.textPrimary),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sending ? null : _sendMessage(),
-                    decoration: InputDecoration(
-                      hintText: 'Escribe tu mensaje...',
-                      hintStyle: TextStyle(color: AppTheme.textSecondary),
-                      filled: true,
-                      fillColor: AppTheme.cardBg,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+          SafeArea(
+            top: false,
+            left: false,
+            right: false,
+            bottom:
+                true, // Esto crea el colchón de aire por encima de los botones de Android
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                4,
+                16,
+                8,
+              ), // Ajustamos márgenes limpios
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: messageController,
+                      style: const TextStyle(color: AppTheme.textPrimary),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sending ? null : _sendMessage(),
+                      decoration: InputDecoration(
+                        hintText: 'Escribe tu mensaje...',
+                        hintStyle: const TextStyle(
+                          color: AppTheme.textSecondary,
+                        ),
+                        filled: true,
+                        fillColor: AppTheme.cardBg,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen,
-                    shape: BoxShape.circle,
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primaryGreen,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _sending ? null : _sendMessage,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors
+                                    .black, // Color oscuro para que contraste
+                              ),
+                            )
+                          : const Icon(Icons.send, color: Colors.black),
+                    ),
                   ),
-                  child: IconButton(
-                    onPressed: _sending ? null : _sendMessage,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send, color: Colors.black),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
