@@ -88,9 +88,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   double get _totalBalance =>
-      _accounts.fold<double>(0, (sum, account) => sum + account.balance);
+      _accounts.fold<double>(0, (sum, account) => sum + account.availableBalance);
 
-  // --- NUEVOS GETTERS PARA LOGICA FINANCIERA ---
+  double get _totalSavingsFund =>
+    _accounts.fold<double>(0, (sum, account) => sum + account.savingsFund);
 
   double get _totalIncomes => _transactions
       .where((t) => t.type.toLowerCase() == 'income')
@@ -107,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return ((savings / _totalIncomes) * 100).round();
   }
 
-  // ---------------------------------------------
 
   List<_BudgetItem> get _budgetItems {
     final categoryMap = {
@@ -265,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             _InfoItem(
                               'Ahorro',
-                              '$_savingsPercentage%',
+                              'S/ $_totalSavingsFund',
                               AppTheme.accentBlue,
                             ),
                           ],

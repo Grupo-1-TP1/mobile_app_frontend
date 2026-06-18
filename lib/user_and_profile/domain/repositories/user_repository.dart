@@ -20,5 +20,11 @@ abstract class UserRepository {
   Future<bool> recoverPassword(String email);
 
   Future<Profile> getProfileByUserId(int userId);
-  Future<void> updateProfile(Profile profile);
+  Future<Profile> updateProfile(Profile profile);
+  Future<Profile> updateProfileName(int userId, String newName);
+  Future<Profile> updateProfilePermissions(int userId, {
+    bool? allowMlAnalysis,
+    bool? allowPushNotifications,
+    bool? useBiometrics,
+  });
 }
