@@ -6,8 +6,7 @@ class Budget extends Equatable {
   final int categoryId;
   final double amount;
   final double spent;
-  final DateTime startDate;
-  final DateTime endDate;
+  final DateTime date;
 
   const Budget({
     this.id,
@@ -15,8 +14,7 @@ class Budget extends Equatable {
     required this.categoryId,
     required this.amount,
     required this.spent,
-    required this.startDate,
-    required this.endDate,
+    required this.date,
   });
 
   double get remainingAmount => amount - spent;
@@ -28,32 +26,32 @@ class Budget extends Equatable {
       userId: (json['userId'] as num).toInt(),
       categoryId: (json['categoryId'] as num).toInt(),
       amount: (json['amount'] as num).toDouble(),
+      // 'spent' viene del backend al consultar, si no viene (o es nulo) por defecto es 0.0
       spent: (json['spent'] as num?)?.toDouble() ?? 0.0,
-      startDate: DateTime.parse(json['startDate'] as String),
-      endDate: DateTime.parse(json['endDate'] as String),
+      date: DateTime.parse(json['date'] as String),
     );
   }
 
+  // MODIFICADO: Retorna exactamente lo que tu POST del backend necesita
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
       'userId': userId,
       'categoryId': categoryId,
       'amount': amount,
-      'startDate': startDate.toIso8601String().split('T').first,
-      'endDate': endDate.toIso8601String().split('T').first,
-      'spent': spent,
+      // Se envía formateado en formato estricto YYYY-MM-DD
+      'date': date.toIso8601String().split('T').first,
     };
   }
 
+  // CORREGIDO: Se eliminaron startDate/endDate obsoletos y se usa 'date'
   Budget copyWith({
     int? id,
     int? userId,
     int? categoryId,
     double? amount,
     double? spent,
-    DateTime? startDate,
-    DateTime? endDate,
+    DateTime? date,
   }) {
     return Budget(
       id: id ?? this.id,
@@ -61,8 +59,7 @@ class Budget extends Equatable {
       categoryId: categoryId ?? this.categoryId,
       amount: amount ?? this.amount,
       spent: spent ?? this.spent,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
+      date: date ?? this.date,
     );
   }
 
@@ -73,7 +70,6 @@ class Budget extends Equatable {
         categoryId,
         amount,
         spent,
-        startDate,
-        endDate,
+        date,
       ];
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/manual_budget_screen.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/budget.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
@@ -34,6 +35,8 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     4: "🎮",
     5: "💡",
     6: "💰",
+    7: "🏠",
+    8: "❓",
   };
 
   @override
@@ -135,8 +138,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     setState(() => _saving = true);
 
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, 1);
-    final end = DateTime(now.year, now.month + 1, 0);
 
     try {
       final List<Future> saveFutures = [];
@@ -150,8 +151,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           categoryId: catId,
           amount: recommendedAmount,
           spent: 0.0,
-          startDate: start,
-          endDate: end,
+          date: now,
         );
         saveFutures.add(ExpensesDI.budgetService.createBudget(newBudget));
       });
@@ -454,15 +454,19 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
-                        context.push(
-                          '/home/budgets/manual',
-                          extra: {
-                            'user': _user,
-                            'categories': _categories,
-                            'initialSuggestions': _suggestedBudgets,
-                          },
+                      onPressed: () async {
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (context) => ManualBudgetScreen(
+                              user: _user!,
+                              categories: _categories,
+                              initialSuggestions: _suggestedBudgets,
+                            ),
+                          ),
                         );
+                        if (result == true) {
+                          _loadData();
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.white24),

@@ -6,8 +6,7 @@ class BudgetModel {
   final int categoryId;
   final double amount;
   final double spent;
-  final DateTime startDate;
-  final DateTime endDate;
+  final DateTime date;
 
   const BudgetModel({
     this.id,
@@ -15,8 +14,7 @@ class BudgetModel {
     required this.categoryId,
     required this.amount,
     required this.spent,
-    required this.startDate,
-    required this.endDate,
+    required this.date,
   });
 
   factory BudgetModel.fromJson(Map<String, dynamic> json) {
@@ -25,9 +23,8 @@ class BudgetModel {
       userId: (json['userId'] as num).toInt(),
       categoryId: (json['categoryId'] as num).toInt(),
       amount: (json['amount'] as num).toDouble(),
-      spent: (json['spent'] as num?)?.toDouble() ?? 0,
-      startDate: DateTime.parse(json['startDate'] as String),
-      endDate: DateTime.parse(json['endDate'] as String),
+      spent: (json['spent'] as num?)?.toDouble() ?? 0.0,
+      date: DateTime.parse(json['date'] as String),
     );
   }
 
@@ -37,9 +34,7 @@ class BudgetModel {
       'userId': userId,
       'categoryId': categoryId,
       'amount': amount,
-      'startDate': startDate.toIso8601String().split('T').first,
-      'endDate': endDate.toIso8601String().split('T').first,
-      'spent': spent,
+      'date': date.toIso8601String().split('T').first,
     };
   }
 
@@ -50,8 +45,7 @@ class BudgetModel {
       categoryId: categoryId,
       amount: amount,
       spent: spent,
-      startDate: startDate,
-      endDate: endDate
+      date: date,
     );
   }
 
@@ -62,8 +56,7 @@ class BudgetModel {
       categoryId: entity.categoryId,
       amount: entity.amount,
       spent: entity.spent,
-      startDate: entity.startDate,
-      endDate: entity.endDate,
+      date: entity.date,
     );
   }
 }

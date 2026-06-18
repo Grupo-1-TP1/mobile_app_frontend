@@ -90,21 +90,24 @@ class _HomeScreenState extends State<HomeScreen> {
   double get _totalBalance =>
       _accounts.fold<double>(0, (sum, account) => sum + account.balance);
 
-  List<_CategorySummary> get _categorySummaries {
-    final categoryMap = {
-      for (final category in _categories)
-        if (category.id != null) category.id!: category.name,
-    };
+  // --- NUEVOS GETTERS PARA LOGICA FINANCIERA ---
 
-    return _budgets.take(3).map((budget) {
-      return _CategorySummary(
-        label:
-            categoryMap[budget.categoryId] ?? 'Categoría ${budget.categoryId}',
-        amount: 'S/ ${budget.remainingAmount.toStringAsFixed(2)}',
-        color: AppTheme.primaryGreen,
-      );
-    }).toList();
+  double get _totalIncomes => _transactions
+      .where((t) => t.type.toLowerCase() == 'income')
+      .fold<double>(0, (sum, t) => sum + t.amount);
+
+  double get _totalExpenses => _transactions
+      .where((t) => t.type.toLowerCase() == 'expense')
+      .fold<double>(0, (sum, t) => sum + t.amount);
+
+  int get _savingsPercentage {
+    if (_totalIncomes == 0) return 0;
+    final savings = _totalIncomes - _totalExpenses;
+    if (savings <= 0) return 0;
+    return ((savings / _totalIncomes) * 100).round();
   }
+
+  // ---------------------------------------------
 
   List<_BudgetItem> get _budgetItems {
     final categoryMap = {
@@ -137,67 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
-  List<_CategorySummary> get _topCategories {
-    final expenseTotals = <int, double>{};
-
-    for (final transaction in _transactions) {
-      if (transaction.type.toLowerCase() == 'expense') {
-        expenseTotals.update(
-          transaction.categoryId,
-          (value) => value + transaction.amount,
-          ifAbsent: () => transaction.amount,
-        );
-      }
-    }
-
-    final categoryMap = {
-      for (final category in _categories)
-        if (category.id != null) category.id!: category.name,
-    };
-
-    final entries = expenseTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return entries.take(3).map((entry) {
-      return _CategorySummary(
-        label: categoryMap[entry.key] ?? 'Categoría ${entry.key}',
-        amount: 'S/ ${entry.value.toStringAsFixed(2)}',
-        color: _summaryColorForIndex(_topCategoriesIndex(entry.key)),
-      );
-    }).toList();
-  }
-
-  int _topCategoriesIndex(int categoryId) {
-    final expenseTotals = <int, double>{};
-
-    for (final transaction in _transactions) {
-      if (transaction.type.toLowerCase() == 'expense') {
-        expenseTotals.update(
-          transaction.categoryId,
-          (value) => value + transaction.amount,
-          ifAbsent: () => transaction.amount,
-        );
-      }
-    }
-
-    final sorted = expenseTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final index = sorted.indexWhere((e) => e.key == categoryId);
-    return index < 0 ? 0 : index;
-  }
-
-  Color _summaryColorForIndex(int index) {
-    switch (index) {
-      case 0:
-        return AppTheme.primaryGreen;
-      case 1:
-        return AppTheme.primaryRed;
-      default:
-        return AppTheme.accentBlue;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,27 +151,21 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: const Color(
-                0xFF13283B,
-              ), // El tono azul oscuro de tu paleta
+              backgroundColor: const Color(0xFF13283B),
               child: Text(
-                _getInitials(
-                  _displayName,
-                ),
+                _getInitials(_displayName),
                 style: const TextStyle(
-                  color: AppTheme.primaryGreen, // Texto verde como en el diseño
+                  color: AppTheme.primaryGreen,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
               ),
             ),
-            const SizedBox(
-              width: 12,
-            ), 
+            const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Hola,',
                   style: TextStyle(
                     color: AppTheme.textSecondary,
@@ -277,8 +213,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Balance del mes', // Alineado al nuevo título del Figma
+                  const Text(
+                    'Saldo actual',
                     style: TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
@@ -287,48 +223,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'S/ ${_totalBalance.toStringAsFixed(2)}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+
+                  // MODIFICADO: Row cambiada dinámicamente según tus requerimientos financieros
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: _loading
                         ? [
-                            _InfoItem('Cargando', '...', AppTheme.primaryGreen),
-                            _InfoItem('Cargando', '...', AppTheme.primaryRed),
-                            _InfoItem('Cargando', '...', AppTheme.accentBlue),
-                          ]
-                        : _categorySummaries.isEmpty
-                        ? [
-                            _InfoItem(
-                              'Sin datos',
-                              'S/ 0.00',
+                            const _InfoItem(
+                              'Ingresos',
+                              '...',
                               AppTheme.primaryGreen,
                             ),
-                            _InfoItem(
-                              'Sin datos',
-                              'S/ 0.00',
+                            const _InfoItem(
+                              'Gastos',
+                              '...',
                               AppTheme.primaryRed,
                             ),
-                            _InfoItem(
-                              'Sin datos',
-                              'S/ 0.00',
+                            const _InfoItem(
+                              'Ahorro',
+                              '...',
                               AppTheme.accentBlue,
                             ),
                           ]
-                        : _categorySummaries
-                              .map(
-                                (item) => _InfoItem(
-                                  item.label,
-                                  item.amount,
-                                  item.color,
-                                ),
-                              )
-                              .toList(),
+                        : [
+                            _InfoItem(
+                              'Ingresos',
+                              '+S/ ${_totalIncomes.toStringAsFixed(0)}',
+                              AppTheme.primaryGreen,
+                            ),
+                            _InfoItem(
+                              'Gastos',
+                              'S/ -${_totalExpenses.toStringAsFixed(0)}',
+                              AppTheme.primaryRed,
+                            ),
+                            _InfoItem(
+                              'Ahorro',
+                              '$_savingsPercentage%',
+                              AppTheme.accentBlue,
+                            ),
+                          ],
                   ),
                 ],
               ),
@@ -361,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Presupuestos',
                   style: TextStyle(
                     color: AppTheme.textPrimary,
@@ -430,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Text(
                                     budget.title,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: AppTheme.textPrimary,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -438,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     budget.spentLabel,
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: AppTheme.textSecondary,
                                       fontSize: 12,
                                     ),
@@ -483,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             const SizedBox(height: 24),
-            Align(
+            const Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Últimas transacciones',
@@ -524,11 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final categoryName = _categories
           .firstWhere(
             (c) => c.id == t.categoryId,
-            orElse: () => Category(
-              id: null,
-              name: 'Categoría ${t.categoryId}',
-              description: null,
-            ),
+            orElse: () => const Category(id: null, name: 'Categoría'),
           )
           .name;
 
@@ -557,14 +493,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     t.description?.isNotEmpty == true
                         ? t.description!
                         : categoryName,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     dateLabel,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
                     ),
@@ -595,17 +531,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _CategorySummary {
-  final String label;
-  final String amount;
-  final Color color;
-
-  const _CategorySummary({
-    required this.label,
-    required this.amount,
-    required this.color,
-  });
-}
+// Se removió la clase obsoleta _CategorySummary ya que no la usamos más.
 
 class _BudgetItem {
   final String title;
@@ -640,12 +566,16 @@ class _InfoItem extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 4),
         Text(
           amount,
-          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
         ),
       ],
     );
@@ -680,7 +610,7 @@ class _ActionButton extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textPrimary, fontSize: 11),
+            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 11),
           ),
         ],
       ),
