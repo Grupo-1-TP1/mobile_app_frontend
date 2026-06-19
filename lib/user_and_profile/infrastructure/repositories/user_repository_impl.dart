@@ -243,4 +243,25 @@ class UserRepositoryImpl implements UserRepository {
       useBiometrics: nextBio,
     );
   }
+
+  @override
+  Future<void> deleteAccount(int userId) async {
+    final token = localDataSource.getAuthToken();
+
+    final response = await client.delete(
+      Uri.parse('$baseUrl/api/v1/users/$userId'),
+      headers: {
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Failed to delete account in Azure: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    await logOut();
+  }
 }

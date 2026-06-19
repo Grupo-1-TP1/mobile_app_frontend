@@ -5,6 +5,7 @@ class RecurringTransactionModel {
   final int userId;
   final int accountId;
   final int categoryId;
+  final int? savingGoalId; // NUEVO
   final String type;
   final double amount;
   final String? description;
@@ -16,6 +17,7 @@ class RecurringTransactionModel {
     required this.userId,
     required this.accountId,
     required this.categoryId,
+    this.savingGoalId, // NUEVO
     required this.type,
     required this.amount,
     this.description,
@@ -29,6 +31,7 @@ class RecurringTransactionModel {
       userId: (json['userId'] as num).toInt(),
       accountId: (json['accountId'] as num).toInt(),
       categoryId: (json['categoryId'] as num).toInt(),
+      savingGoalId: json['savingGoalId'] as int?, // NUEVO
       type: json['type'] as String,
       amount: (json['amount'] as num).toDouble(),
       description: json['description'] as String?,
@@ -43,6 +46,7 @@ class RecurringTransactionModel {
       'userId': userId,
       'accountId': accountId,
       'categoryId': categoryId,
+      'savingGoalId': savingGoalId, // NUEVO
       'type': type,
       'amount': amount,
       'description': description,
@@ -57,6 +61,7 @@ class RecurringTransactionModel {
       userId: userId,
       accountId: accountId,
       categoryId: categoryId,
+      savingGoalId: savingGoalId, // NUEVO
       type: type,
       amount: amount,
       description: description,
@@ -71,6 +76,7 @@ class RecurringTransactionModel {
       userId: entity.userId,
       accountId: entity.accountId,
       categoryId: entity.categoryId,
+      savingGoalId: entity.savingGoalId, // NUEVO
       type: entity.type,
       amount: entity.amount,
       description: entity.description,

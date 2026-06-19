@@ -69,11 +69,13 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
   String _emojiForCategory(String name) {
     final value = name.toLowerCase();
-    if (value.contains('comida') || value.contains('food')) return '🍔';
+    if (value.contains('alimentacion') || value.contains('food')) return '🍔';
     if (value.contains('transporte') || value.contains('bus')) return '🚌';
-    if (value.contains('ocio') || value.contains('fun')) return '🎮';
-    if (value.contains('educ')) return '📚';
-    if (value.contains('casa')) return '🏠';
+    if (value.contains('entretenimiento') || value.contains('fun')) return '🎮';
+    if (value.contains('estudios')) return '📚';
+    if (value.contains('vivienda')) return '🏠';
+    if (value.contains('transferencias')) return '💰';
+    if (value.contains('otros')) return '❓';
     return '💳';
   }
 

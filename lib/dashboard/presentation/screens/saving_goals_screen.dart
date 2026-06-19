@@ -65,27 +65,16 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
         '${date.year}';
   }
 
-  String _emojiForGoal(SavingGoal goal) {
-    final name = goal.name.toLowerCase();
-
-    if (name.contains('viaje')) return '✈️';
-    if (name.contains('laptop') || name.contains('pc')) return '💻';
-    if (name.contains('curso') || name.contains('estudio')) return '📚';
-    if (name.contains('casa')) return '🏠';
-    if (name.contains('auto') || name.contains('carro')) return '🚗';
-    return '🎯';
-  }
-
   Color _colorForIndex(int index) {
     switch (index % 4) {
       case 0:
-        return const Color(0xFF2DD4BF);
+        return const Color(0xFF2DD4BF); // Teal
       case 1:
-        return const Color(0xFF60A5FA);
+        return const Color(0xFF60A5FA); // Blue
       case 2:
-        return const Color(0xFFF59E0B);
+        return const Color(0xFFF59E0B); // Amber
       default:
-        return const Color(0xFFFB7185);
+        return const Color(0xFFFB7185); // Rose
     }
   }
 
@@ -185,8 +174,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount:
-                          goals.length + (_confirmDeleteGoalId != null ? 1 : 0),
+                      itemCount: goals.length + (_confirmDeleteGoalId != null ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         if (_confirmDeleteGoalId != null && index == 1) {
@@ -196,15 +184,13 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                           return _buildDeleteConfirmCard(goalToDelete);
                         }
 
-                        final adjustedIndex =
-                            _confirmDeleteGoalId != null && index > 1
+                        final adjustedIndex = _confirmDeleteGoalId != null && index > 1
                             ? index - 1
                             : index;
 
                         final goal = goals[adjustedIndex];
                         final progress = goal.progress.clamp(0.0, 1.0);
                         final accentColor = _colorForIndex(adjustedIndex);
-                        final emoji = _emojiForGoal(goal);
 
                         return Container(
                           padding: const EdgeInsets.all(16),
@@ -227,17 +213,19 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                             children: [
                               Row(
                                 children: [
+                                  // REEMPLAZADO: Contenedor con ícono financiero limpio en vez de emoji
                                   Container(
                                     width: 36,
                                     height: 36,
                                     decoration: BoxDecoration(
-                                      color: accentColor.withOpacity(0.16),
-                                      shape: BoxShape.circle,
+                                      color: accentColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     alignment: Alignment.center,
-                                    child: Text(
-                                      emoji,
-                                      style: const TextStyle(fontSize: 18),
+                                    child: Icon(
+                                      Icons.flag_rounded, 
+                                      color: accentColor, 
+                                      size: 20
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -256,7 +244,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                                     icon: Icon(
                                       Icons.edit,
                                       color: AppTheme.textSecondary,
-                                      size: 20,
+                                      size: 18,
                                     ),
                                   ),
                                   IconButton(
@@ -264,7 +252,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                                     icon: Icon(
                                       Icons.delete_outline,
                                       color: AppTheme.textSecondary,
-                                      size: 20,
+                                      size: 18,
                                     ),
                                   ),
                                   Container(
@@ -293,18 +281,13 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                                 child: LinearProgressIndicator(
                                   value: progress,
                                   minHeight: 8,
-                                  backgroundColor: Colors.white.withOpacity(
-                                    0.08,
-                                  ),
-                                  valueColor: AlwaysStoppedAnimation(
-                                    accentColor,
-                                  ),
+                                  backgroundColor: Colors.white.withOpacity(0.08),
+                                  valueColor: AlwaysStoppedAnimation(accentColor),
                                 ),
                               ),
                               const SizedBox(height: 10),
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'S/ ${goal.currentAmount.toStringAsFixed(0)} ahorrado',
@@ -324,7 +307,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Proyección: ${_formatDeadline(goal.deadline)}',
+                                'Proyección estimada: ${_formatDeadline(goal.deadline)}',
                                 style: TextStyle(
                                   color: AppTheme.textSecondary,
                                   fontSize: 12,

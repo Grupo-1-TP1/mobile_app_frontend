@@ -27,4 +27,5 @@ abstract class UserRepository {
     bool? allowPushNotifications,
     bool? useBiometrics,
   });
+  Future<void> deleteAccount(int userId);
 }

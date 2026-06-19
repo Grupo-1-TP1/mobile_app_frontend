@@ -59,7 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // --- MÉTODOS DE ACTUALIZACIÓN ---
+  // --- MÉTODOS DE ACCIÓN ---
 
   Future<void> _updateName(String newName) async {
     if (newName.trim().isEmpty || _currentUser == null) return;
@@ -117,7 +117,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _currentUser!.id,
       );
 
-      // Creamos la instancia directamente para evitar el error de copyWith
       final updatedProfile = Profile(
         id: currentProfile.id,
         userId: currentProfile.userId,
@@ -141,13 +140,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _handleDeleteAccount() async {
+    if (_currentUser == null) return;
+
+    setState(() => _loading = true);
+    try {
+      // Ajusta este método según dónde esté implementada tu lógica en la arquitectura distribuida
+      await AuthDI.userRepository.deleteAccount(_currentUser!.id);
+
+      if (!mounted) return;
+      context.go('/login');
+    } catch (e) {
+      setState(() => _loading = false);
+      _showSnackBar('Error al eliminar la cuenta: $e');
+    }
+  }
+
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // --- DIÁLOGOS DE EDICIÓN ---
+  // --- DIÁLOGOS ---
 
   void _showEditNameDialog() {
     final controller = TextEditingController(text: _name);
@@ -248,6 +263,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardBg,
+        title: const Text(
+          '¿Eliminar cuenta?',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          'Esta acción es irreversible y borrará de manera definitiva todos tus perfiles, registros financieros asociados y credenciales de acceso.',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleDeleteAccount();
+            },
+            child: const Text(
+              'Eliminar definitivamente',
+              style: TextStyle(
+                color: AppTheme.primaryRed,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading || _currentUser == null) {
@@ -266,47 +323,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
           style: TextStyle(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
         elevation: 0,
+        centerTitle: false,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           children: [
-            // Tarjeta de Identidad del Alumno
+            // Tarjeta de Identidad (Comprimida)
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: AppTheme.cardBg,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 60,
+                    height: 60,
                     decoration: const BoxDecoration(
                       color: AppTheme.accentBlue,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.person,
-                      size: 40,
+                      size: 32,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(
-                        width: 32,
-                      ), // Ajuste de centrado por el botón
+                      const SizedBox(width: 24),
                       Text(
                         _name,
                         style: const TextStyle(
-                          fontSize: 22,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textPrimary,
                         ),
@@ -315,9 +372,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: const Icon(
                           Icons.edit_note,
                           color: AppTheme.primaryGreen,
-                          size: 22,
+                          size: 20,
                         ),
                         onPressed: _showEditNameDialog,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
@@ -325,10 +384,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _currentUser!.username,
                     style: const TextStyle(
                       color: AppTheme.textSecondary,
-                      fontSize: 13,
+                      fontSize: 12,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -351,8 +410,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
 
+            // Interruptores de configuración
             _SettingSwitchItem(
               title: 'Análisis automatizado',
               subtitle: 'Clasificación de consumos en segundo plano',
@@ -374,32 +434,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
               value: _useBiometrics,
               onChanged: (val) => _updatePermissions(useBio: val),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
 
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await AuthDI.userRepository.logOut();
-                  if (!mounted) return;
-                  context.go('/login');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryRed,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            // Fila de acciones inferiores compacta
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        await AuthDI.userRepository.logOut();
+                        if (!mounted) return;
+                        context.go('/login');
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.primaryRed),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cerrar sesión',
+                        style: TextStyle(
+                          color: AppTheme.primaryRed,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'Cerrar sesión',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: ElevatedButton(
+                      onPressed: _showDeleteConfirmationDialog,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryRed,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Eliminar cuenta',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -421,22 +511,22 @@ class _ProfileStat extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, color: AppTheme.primaryGreen, size: 18),
-            const SizedBox(width: 6),
+            Icon(icon, color: AppTheme.primaryGreen, size: 16),
+            const SizedBox(width: 4),
             Text(
               value,
               style: const TextStyle(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: 14,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
         ),
       ],
     );
@@ -461,24 +551,24 @@ class _SettingSwitchItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(icon, color: AppTheme.primaryGreen),
+              child: Icon(icon, color: AppTheme.primaryGreen, size: 20),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,10 +578,9 @@ class _SettingSwitchItem extends StatelessWidget {
                     style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontWeight: FontWeight.w500,
-                      fontSize: 15,
+                      fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: const TextStyle(
