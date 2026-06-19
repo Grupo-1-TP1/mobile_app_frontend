@@ -22,10 +22,9 @@ class MLService {
 
   Future<int> classifyCategory(String text) async {
     if (!_isInitialized) {
-      return _labelIds.isNotEmpty ? _labelIds.first : -1;
+      return _labelIds.contains(6) ? 6 : (_labelIds.isNotEmpty ? _labelIds.first : -1);
     }
-
-    return _labelIds.isNotEmpty ? _labelIds.first : -1;
+    return _labelIds.contains(6) ? 6 : (_labelIds.isNotEmpty ? _labelIds.first : -1);
   }
 
   Future<double> recommendBudget(Map<String, dynamic> features) async {

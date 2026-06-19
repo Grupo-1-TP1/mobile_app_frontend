@@ -137,10 +137,18 @@ class MLService {
     }
 
     var bestIndex = 0;
+    var maxConfidence = scores[0];
+
     for (var i = 1; i < scores.length; i++) {
-      if (scores[i] > scores[bestIndex]) {
+      if (scores[i] > maxConfidence) {
+        maxConfidence = scores[i];
         bestIndex = i;
       }
+    }
+
+    const double confidenceThreshold = 0.50;
+    if (maxConfidence < confidenceThreshold) {
+      return 8; 
     }
 
     // Retornar el ID de categoría directo del mapeo de etiquetas
