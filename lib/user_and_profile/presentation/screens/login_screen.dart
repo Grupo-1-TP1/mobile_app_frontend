@@ -177,6 +177,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                 );
 
                                 if (!context.mounted) return;
+
+                                final user = await _userRepo.getCurrentUser();
+                                if (user != null) {
+                                  final profile = await _userRepo
+                                      .getProfileByUserId(user.id);
+                                  if (profile.useBiometrics) {
+                                    context.go('/auth-checkpoint');
+                                    return;
+                                  }
+                                }
+
                                 context.go('/home');
                               } catch (e) {
                                 if (mounted) {
@@ -233,8 +244,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       // PIN
                       GestureDetector(
-                        onTap: () {
-                          // Implementar lógica PIN
+                        onTap: () async {
+                          final user = await _userRepo.getCurrentUser();
+                          if (user != null) {
+                            final profile = await _userRepo.getProfileByUserId(
+                              user.id,
+                            );
+                            if (profile.useBiometrics) {
+                              if (mounted) context.go('/auth-checkpoint');
+                              return;
+                            }
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'La biometría no está activa o configurada en tu perfil.',
+                                ),
+                              ),
+                            );
+                          }
                         },
                         child: Container(
                           padding: const EdgeInsets.all(16),
@@ -268,8 +297,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Biométrico
                       GestureDetector(
-                        onTap: () {
-                          // Implementar lógica biométrica
+                        onTap: () async {
+                          final user = await _userRepo.getCurrentUser();
+                          if (user != null) {
+                            final profile = await _userRepo.getProfileByUserId(
+                              user.id,
+                            );
+                            if (profile.useBiometrics) {
+                              if (mounted) context.go('/auth-checkpoint');
+                              return;
+                            }
+                          }
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'La biometría no está activa o configurada en tu perfil.',
+                                ),
+                              ),
+                            );
+                          }
                         },
                         child: Container(
                           padding: const EdgeInsets.all(16),
@@ -287,7 +334,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                'Biométrico',
+                                'Huella',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,

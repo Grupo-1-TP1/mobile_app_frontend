@@ -8,14 +8,15 @@ import 'package:mobile_app_frontend/expenses/presentation/screens/register_trans
 import 'package:mobile_app_frontend/expenses/presentation/screens/transaction_history_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/alerts_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/chatbot_screen.dart';
+import 'package:mobile_app_frontend/shared/presentation/screens/initial_route_filter.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/profile_screen.dart';
-import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/create_account_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/login_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/register_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/splash_onboarding_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/main_dashboard_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/verification_checkpoint_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -23,7 +24,7 @@ class AppRouter {
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => const RootSessionChecker(),
+        builder: (context, state) => const InitialRouteFilter(),
       ),
       GoRoute(
         path: '/splash',
@@ -44,6 +45,14 @@ class AppRouter {
         path: '/create-account',
         name: 'create-account',
         builder: (context, state) => const CreateAccountScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const SplashOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/auth-checkpoint',
+        builder: (context, state) => const VerificationCheckpointScreen(),
       ),
       GoRoute(
         path: '/home',
@@ -107,52 +116,4 @@ class AppRouter {
       ),
     ],
   );
-}
-
-class RootSessionChecker extends StatefulWidget {
-  const RootSessionChecker({Key? key}) : super(key: key);
-
-  @override
-  State<RootSessionChecker> createState() => _RootSessionCheckerState();
-}
-
-class _RootSessionCheckerState extends State<RootSessionChecker> {
-  @override
-  void initState() {
-    super.initState();
-    _checkActiveSession();
-  }
-
-  Future<void> _checkActiveSession() async {
-    try {
-
-      final loggedInUser = await AuthDI.userRepository.getCurrentUser();
-
-      if (!mounted) return;
-
-      if (loggedInUser != null) {
-        context.go('/home');
-      } else {
-        context.go('/splash');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      context.go('/splash');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(
-        0xFF0A1118,
-      ), // Mismo color de fondo oscuro de tu tema
-      body: Center(
-        child: CircularProgressIndicator(
-          color: Colors
-              .green, // Muestra el loader mientras lee el almacenamiento local
-        ),
-      ),
-    );
-  }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/biometrics/biometric_service.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/profile.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
@@ -432,7 +433,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               subtitle: 'Acceso rápido con huella o rostro',
               icon: Icons.fingerprint_rounded,
               value: _useBiometrics,
-              onChanged: (val) => _updatePermissions(useBio: val),
+              onChanged: (val) async {
+                final biometricService =
+                    BiometricService();
+                final canCheck = await biometricService.canUseBiometrics();
+
+                if (!canCheck && val == true) {
+                  _showSnackBar(
+                    'Tu dispositivo no cuenta con biometría o PIN de bloqueo configurado en el sistema.',
+                  );
+                  return;
+                }
+                _updatePermissions(useBio: val);
+              },
             ),
             const SizedBox(height: 16),
 
