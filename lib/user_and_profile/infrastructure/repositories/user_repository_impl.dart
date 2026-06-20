@@ -110,8 +110,98 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
-  Future<bool> recoverPassword(String email) async {
-    return true;
+  Future<User?> getUserByEmail(String email) async {
+    final token = localDataSource.getAuthToken();
+
+    final response = await client.get(
+      Uri.parse('$baseUrl/api/v1/users/email/${Uri.encodeComponent(email)}'),
+      headers: {
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Failed to get user by email from Azure: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    final Map<String, dynamic> data =
+        (decoded is Map<String, dynamic> &&
+            decoded['data'] is Map<String, dynamic>)
+        ? decoded['data'] as Map<String, dynamic>
+        : (decoded as Map<String, dynamic>);
+
+    final userModel = UserModel.fromJson(data);
+    return userModel.toEntity();
+  }
+
+  @override
+  Future<User?> changePassword(String email, String newPassword) async {
+    final token = localDataSource.getAuthToken();
+
+    final response = await client.put(
+      Uri.parse('$baseUrl/api/v1/users/change-password/$email'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({"newPassword": newPassword}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Failed to update profile name in Azure: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    return await getUserByEmail(email);
+  }
+
+  @override
+  Future<void> requestCode(String email) async {
+    final url = Uri.parse(
+      '$baseUrl/api/v1/auth/request-code',
+    ).replace(queryParameters: {'email': email});
+
+    final response = await client.post(
+      url,
+      headers: const {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Failed to request code from Azure: ${response.statusCode} ${response.body}',
+      );
+    }
+  }
+
+  @override
+  Future<bool> verifyCode(String email, String code) async {
+    final url = Uri.parse(
+      '$baseUrl/api/v1/auth/verify-code',
+    ).replace(queryParameters: {'email': email, 'code': code});
+
+    final response = await client.post(
+      url,
+      headers: const {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return true;
+    }
+
+    if (response.statusCode == 400 || response.statusCode == 401) {
+      return false;
+    }
+
+    throw Exception(
+      'Failed to verify code with Azure: ${response.statusCode} ${response.body}',
+    );
   }
 
   @override

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/register_screen.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/push_notifications_service.dart'; // Importante para las alertas
+import 'package:http/http.dart'
+    as http; // Usado para pasar el cliente a la sincronización
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // View state
   bool _isPasswordVisible = false;
-
   bool _loading = false;
   final _userRepo = AuthDI.userRepository;
 
@@ -69,7 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Título
                   const Text(
                     'Bienvenido',
                     textAlign: TextAlign.left,
@@ -79,19 +80,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.white,
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
-                  // Subtítulo
                   const Text(
                     'Ingresa a tu cuenta',
                     textAlign: TextAlign.left,
                     style: TextStyle(fontSize: 14, color: Colors.white54),
                   ),
-
                   const SizedBox(height: 32),
-
-                  // Correo electrónico
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -104,10 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-
                   const SizedBox(height: 18),
-
-                  // Contraseña
                   TextFormField(
                     controller: _passwordController,
                     obscureText: !_isPasswordVisible,
@@ -132,10 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Link ¿Olvidaste tu contraseña?
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -155,10 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Botón Iniciar sesión
                   SizedBox(
                     height: 54,
                     child: ElevatedButton(
@@ -182,15 +168,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                 final user = await _userRepo.getCurrentUser();
                                 if (user != null) {
+                                  await PushNotificationsService.instance
+                                      .subscribeToUserTopic(user.id);
+
+                                  final httpClient = http.Client();
+                                  const baseUrl =
+                                      'https://finio-api.azurewebsites.net';
+
+                                  await PushNotificationsService.instance
+                                      .loadUserNotifications(
+                                        user.id,
+                                        httpClient,
+                                        baseUrl,
+                                      );
+
                                   final profile = await _userRepo
                                       .getProfileByUserId(user.id);
                                   if (profile.useBiometrics) {
-                                    context.go('/auth-checkpoint');
+                                    if (mounted) context.go('/auth-checkpoint');
                                     return;
                                   }
                                 }
 
-                                context.go('/home');
+                                if (mounted) context.go('/home');
                               } catch (e) {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -218,10 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Link Registrarse
                   Center(
                     child: RichText(
                       text: TextSpan(
@@ -242,14 +239,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 32),
-
-                  // Botones de acceso rápido
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // PIN
                       GestureDetector(
                         onTap: () async {
                           final user = await _userRepo.getCurrentUser();
@@ -279,15 +272,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: _accent, width: 1.5),
                           ),
-                          child: Column(
+                          child: const Column(
                             children: [
                               Icon(
                                 Icons.lock_outline,
                                 color: _accent,
                                 size: 32,
                               ),
-                              const SizedBox(height: 8),
-                              const Text(
+                              SizedBox(height: 8),
+                              Text(
                                 'PIN',
                                 style: TextStyle(
                                   color: Colors.white70,
@@ -299,10 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(width: 16),
-
-                      // Biométrico
                       GestureDetector(
                         onTap: () async {
                           final user = await _userRepo.getCurrentUser();
@@ -332,15 +322,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: _accent, width: 1.5),
                           ),
-                          child: Column(
+                          child: const Column(
                             children: [
                               Icon(
                                 Icons.person_outline,
                                 color: _accent,
                                 size: 32,
                               ),
-                              const SizedBox(height: 8),
-                              const Text(
+                              SizedBox(height: 8),
+                              Text(
                                 'Huella',
                                 style: TextStyle(
                                   color: Colors.white70,
@@ -354,7 +344,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 40),
                 ],
               ),

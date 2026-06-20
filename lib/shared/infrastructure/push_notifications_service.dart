@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 import 'package:mobile_app_frontend/shared/domain/entities/app_notification.dart';
 import 'package:mobile_app_frontend/shared/infrastructure/data_sources/notifications_local_data_source.dart';
 
@@ -22,11 +24,13 @@ class PushNotificationsService {
       ValueNotifier<List<AppNotification>>(<AppNotification>[]);
 
   bool _initialized = false;
+  int? _currentUserId; // Identificador del usuario autenticado actualmente
 
   Future<void> initialize() async {
     if (_initialized) return;
 
-    await _loadStoredNotifications();
+    // Nota: Ya no cargamos notificaciones globales aquí para evitar mezclar datos.
+    // La carga se delega a loadUserNotifications una vez tengamos el ID del usuario.
 
     if (!kIsWeb) {
       await _requestPermissions();
@@ -37,6 +41,42 @@ class PushNotificationsService {
     }
 
     _initialized = true;
+  }
+
+  Future<void> loadUserNotifications(
+    int userId,
+    http.Client client,
+    String baseUrl,
+  ) async {
+    _currentUserId = userId;
+
+    final localNotes = await _localDataSource.loadNotifications(userId);
+    notifications.value = localNotes;
+
+    try {
+      final response = await client.get(
+        Uri.parse('$baseUrl/api/v1/notifications/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decodedList = jsonDecode(response.body);
+
+        final remoteNotes = decodedList
+            .map(
+              (json) => AppNotification.fromJson(json as Map<String, dynamic>),
+            )
+            .toList();
+
+        notifications.value = remoteNotes;
+        await _localDataSource.saveNotifications(userId, remoteNotes);
+      }
+    } catch (e) {
+      debugPrint("⚠️ Falló la sincronización remota de alertas con Azure: $e");
+    }
   }
 
   Future<void> _requestPermissions() async {
@@ -78,27 +118,28 @@ class PushNotificationsService {
     await _localNotifications.initialize(initSettings);
   }
 
-  Future<void> _loadStoredNotifications() async {
-    notifications.value = await _localDataSource.loadNotifications();
-  }
-
   Future<void> subscribeToUserTopic(int userId) async {
     if (kIsWeb) return;
+    _currentUserId = userId;
     await _messaging.subscribeToTopic('user_$userId');
   }
 
   Future<void> unsubscribeFromUserTopic(int userId) async {
     if (kIsWeb) return;
     await _messaging.unsubscribeFromTopic('user_$userId');
+    _currentUserId = null;
+    notifications.value = <AppNotification>[];
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     final notification = AppNotification.fromRemoteMessage(message);
 
     final updated = <AppNotification>[notification, ...notifications.value];
-
     notifications.value = updated;
-    await _localDataSource.saveNotifications(updated);
+
+    if (_currentUserId != null) {
+      await _localDataSource.saveNotifications(_currentUserId!, updated);
+    }
 
     await _showLocalNotification(notification);
   }
@@ -130,13 +171,17 @@ class PushNotificationsService {
 
   Future<void> addManualNotification(AppNotification notification) async {
     final updated = <AppNotification>[notification, ...notifications.value];
-
     notifications.value = updated;
-    await _localDataSource.saveNotifications(updated);
+
+    if (_currentUserId != null) {
+      await _localDataSource.saveNotifications(_currentUserId!, updated);
+    }
   }
 
   Future<void> clearAll() async {
+    if (_currentUserId != null) {
+      await _localDataSource.clear(_currentUserId!);
+    }
     notifications.value = <AppNotification>[];
-    await _localDataSource.clear();
   }
 }

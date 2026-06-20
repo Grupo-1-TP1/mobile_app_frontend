@@ -12,6 +12,7 @@ import 'package:mobile_app_frontend/shared/presentation/screens/initial_route_fi
 import 'package:mobile_app_frontend/shared/presentation/screens/profile_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/create_account_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/login_screen.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/password_recovery.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/register_screen.dart';
 import 'package:mobile_app_frontend/user_and_profile/presentation/screens/splash_onboarding_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screen.dart';
@@ -53,6 +54,10 @@ class AppRouter {
       GoRoute(
         path: '/auth-checkpoint',
         builder: (context, state) => const VerificationCheckpointScreen(),
+      ),
+      GoRoute(
+        path: '/password-recovery',
+        builder: (context, state) => const PasswordRecoveryScreen(),
       ),
       GoRoute(
         path: '/home',

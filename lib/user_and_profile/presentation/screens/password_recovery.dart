@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
+import 'verify_code_screen.dart'; // Ajusta la ruta de tu proyecto
 
 class PasswordRecoveryScreen extends StatefulWidget {
   const PasswordRecoveryScreen({super.key});
@@ -9,14 +12,11 @@ class PasswordRecoveryScreen extends StatefulWidget {
 
 class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
   final formKey = GlobalKey<FormState>();
-
-  // Controllers
   final TextEditingController _emailController = TextEditingController();
+  bool _loading = false;
 
-  // Theme colors
   static const Color _bg = Color(0xFF071826);
   static const Color _fieldBg = Color(0xFF0E2630);
-  static const Color _cardBg = Color(0xFF102936);
   static const Color _accent = Color(0xFF2EE3A2);
   static const Color _infoBg = Color(0xFF0F3A4D);
   static const Color _infoText = Color(0xFF4AEADA);
@@ -45,6 +45,49 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
     );
   }
 
+  Future<void> _handleRequestCode() async {
+    if (!formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+    final email = _emailController.text.trim();
+
+    try {
+      // 1. Validar que exista el usuario asociado a ese correo
+      // GET /api/v1/users/email/{email}
+      final user = await AuthDI.userRepository.getUserByEmail(
+        email,
+      );
+
+      if (user == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No existe una cuenta registrada con este correo electrónico.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      await AuthDI.userRepository.requestCode(email);
+
+      if (!mounted) return;
+
+      // 3. Redirección pasándole el correo a la siguiente vista
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => VerifyCodeScreen(email: email)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error en el proceso de recuperación: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,7 +97,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () => context.go('/login'),
         ),
         title: const Text(
           'Volver',
@@ -70,8 +113,6 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 8),
-
-                // Título
                 const Text(
                   'Recuperar\ncontraseña',
                   style: TextStyle(
@@ -81,21 +122,12 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                     height: 1.3,
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
-                // Subtítulo
                 const Text(
-                  'Te enviaremos un enlace a tu correo',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white54,
-                  ),
+                  'Ingresa tu correo vinculado para enviarte un código de seguridad.',
+                  style: TextStyle(fontSize: 14, color: Colors.white54),
                 ),
-
                 const SizedBox(height: 22),
-
-                // Label Correo electrónico
                 const Text(
                   'Correo electrónico',
                   style: TextStyle(
@@ -104,10 +136,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
-                // Campo de correo
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -115,46 +144,34 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                   style: const TextStyle(color: Colors.white),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Correo obligatorio';
-                    final re = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                    if (!re.hasMatch(v)) return 'Correo inválido';
+                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v))
+                      return 'Correo inválido';
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 20),
-
-                // Botón Enviar enlace
                 SizedBox(
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: () {
-                      if (formKey.currentState!.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Enlace enviado a ${_emailController.text}',
-                            ),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _loading ? null : _handleRequestCode,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _accent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    child: const Text(
-                      'Enviar enlace',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    child: _loading
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : const Text(
+                            'Continuar',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // Card informativa
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -165,7 +182,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.info_outline,
                         color: _infoText,
                         size: 20,
@@ -173,7 +190,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Revisa también tu carpeta de spam. El enlace expira en 30 minutos.',
+                          'El código se enviará de manera inmediata y expira en 10 minutos.',
                           style: TextStyle(
                             color: _infoText,
                             fontSize: 13,
@@ -184,8 +201,6 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 40),
               ],
             ),
           ),

@@ -17,7 +17,11 @@ abstract class UserRepository {
 
   Future<User?> getCurrentUser();
 
-  Future<bool> recoverPassword(String email);
+  Future<User?> getUserByEmail(String email);
+  Future<User?> changePassword(String email, String newPassword);
+
+  Future<void> requestCode(String email);
+  Future<bool> verifyCode(String email, String code);
 
   Future<Profile> getProfileByUserId(int userId);
   Future<Profile> updateProfile(Profile profile);
