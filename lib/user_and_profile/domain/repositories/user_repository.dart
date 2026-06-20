@@ -26,6 +26,7 @@ abstract class UserRepository {
   Future<Profile> getProfileByUserId(int userId);
   Future<Profile> updateProfile(Profile profile);
   Future<Profile> updateProfileName(int userId, String newName);
+  Future<Profile> updateProfileSavingPercentage(int userId, int percentage);
   Future<Profile> updateProfilePermissions(int userId, {
     bool? allowMlAnalysis,
     bool? allowPushNotifications,

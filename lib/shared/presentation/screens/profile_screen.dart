@@ -110,25 +110,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _updateSavingPercentage(int percentage) async {
-    if (_currentUser == null || percentage < 0 || percentage > 100) return;
+    if (_currentUser == null) return;
 
     setState(() => _loading = true);
     try {
-      final currentProfile = await AuthDI.userRepository.getProfileByUserId(
+      await AuthDI.userRepository.updateProfileSavingPercentage(
         _currentUser!.id,
+        percentage,
       );
-
-      final updatedProfile = Profile(
-        id: currentProfile.id,
-        userId: currentProfile.userId,
-        name: currentProfile.name,
-        savingPercentage: percentage,
-        allowMlAnalysis: currentProfile.allowMlAnalysis,
-        allowPushNotifications: currentProfile.allowPushNotifications,
-        useBiometrics: currentProfile.useBiometrics,
-      );
-
-      await AuthDI.userRepository.updateProfile(updatedProfile);
 
       setState(() {
         _savingPercentage = percentage;
@@ -137,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _showSnackBar('Meta de ahorro actualizada');
     } catch (e) {
       setState(() => _loading = false);
-      _showSnackBar('Error al cambiar meta de ahorro: $e');
+      _showSnackBar('Error al actualizar meta de ahorro: $e');
     }
   }
 

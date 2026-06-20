@@ -287,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Colors.green,
                   onTap: () async {
                     final result = await context.push<bool>(
-                      '/home/transaction/expense',
+                      '/home/transaction/income',
                     );
                     if (result == true) {
                       _loadData();

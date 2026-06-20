@@ -289,6 +289,29 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
+  Future<Profile> updateProfileSavingPercentage(int userId, int percentage) async {
+    final token = localDataSource.getAuthToken();
+
+    final response = await client.put(
+      Uri.parse('$baseUrl/api/v1/profiles/saving-percentage/$userId'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({"percentage": percentage}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Failed to update profile saving percentage in Azure: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    return await getProfileByUserId(userId);
+  }
+
+  @override
   Future<Profile> updateProfilePermissions(
     int userId, {
     bool? allowMlAnalysis,
