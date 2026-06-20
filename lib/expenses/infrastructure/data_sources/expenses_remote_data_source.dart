@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_app_frontend/expenses/infrastructure/models/account_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/budget_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/category_model.dart';
+import 'package:mobile_app_frontend/expenses/infrastructure/models/prediction_model.dart';
+import 'package:mobile_app_frontend/expenses/infrastructure/models/recommendation_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/recurring_transaction_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/saving_goal_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/transaction_model.dart';
@@ -206,6 +208,24 @@ class ExpensesRemoteDataSource {
       headers: _authHeaders(),
     );
     _ensureSuccess(response);
+  }
+
+  Future<PredictionModel> createPrediction(PredictionModel model) async {
+    final response = await client.post(
+      Uri.parse('$baseUrl/api/v1/predictions'),
+      headers: _jsonAuthHeaders(),
+      body: jsonEncode(model.toJson()),
+    );
+    return _readSingle(response, PredictionModel.fromJson);
+  }
+
+  Future<RecommendationModel> createRecommendation(RecommendationModel model) async {
+    final response = await client.post(
+      Uri.parse('$baseUrl/api/v1/recommendations'),
+      headers: _jsonAuthHeaders(),
+      body: jsonEncode(model.toJson()),
+    );
+    return _readSingle(response, RecommendationModel.fromJson);
   }
 
   List<T> _readList<T>(http.Response response, T Function(Map<String, dynamic>) parser) {

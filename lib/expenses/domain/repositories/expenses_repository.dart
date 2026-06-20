@@ -1,6 +1,8 @@
 import 'package:mobile_app_frontend/expenses/domain/entities/account.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/budget.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/prediction.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/recommendation.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/recurring_transaction.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/saving_goal.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
@@ -34,4 +36,7 @@ abstract class ExpensesRepository {
   Future<SavingGoal> createSavingGoal(SavingGoal savingGoal);
   Future<SavingGoal> getSavingGoalById(int savingGoalId);
   Future<void> deleteSavingGoal(int savingGoalId);
+
+  Future<Prediction> createPrediction(Prediction prediction);
+  Future<Recommendation> createRecommendation(Recommendation recommendation);
 }

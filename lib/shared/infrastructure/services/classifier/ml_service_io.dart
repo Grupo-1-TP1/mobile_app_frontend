@@ -7,7 +7,9 @@ class MLService {
   Interpreter? _interpreter;
   Map<String, int> _wordIndex = {};
   List<int> _labelIds = [];
-  
+
+  double _latestConfidenceScore = 1.0;
+
 
   int _inputLength = 12; 
   bool _isInitialized = false;
@@ -146,6 +148,8 @@ class MLService {
       }
     }
 
+    _latestConfidenceScore = maxConfidence;
+
     const double confidenceThreshold = 0.50;
     if (maxConfidence < confidenceThreshold) {
       return 8; 
@@ -157,6 +161,10 @@ class MLService {
     }
 
     return _labelIds.isNotEmpty ? _labelIds.first : -1;
+  }
+
+  Future<double> getLatestConfidenceScore() async {
+    return _latestConfidenceScore;
   }
 
   Future<double> recommendBudget(Map<String, dynamic> features) async {

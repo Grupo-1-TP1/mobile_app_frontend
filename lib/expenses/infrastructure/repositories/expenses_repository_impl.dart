@@ -1,6 +1,8 @@
 import 'package:mobile_app_frontend/expenses/domain/entities/account.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/budget.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/prediction.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/recommendation.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/recurring_transaction.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/saving_goal.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
@@ -9,6 +11,8 @@ import 'package:mobile_app_frontend/expenses/infrastructure/data_sources/expense
 import 'package:mobile_app_frontend/expenses/infrastructure/models/account_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/budget_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/category_model.dart';
+import 'package:mobile_app_frontend/expenses/infrastructure/models/prediction_model.dart';
+import 'package:mobile_app_frontend/expenses/infrastructure/models/recommendation_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/recurring_transaction_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/saving_goal_model.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/models/transaction_model.dart';
@@ -150,5 +154,19 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   @override
   Future<void> deleteSavingGoal(int savingGoalId) {
     return remoteDataSource.deleteSavingGoal(savingGoalId);
+  }
+
+  @override
+  Future<Prediction> createPrediction(Prediction prediction) async {
+    final model = await remoteDataSource.createPrediction(PredictionModel.fromEntity(prediction));
+    return model.toEntity();
+  }
+
+  @override
+  Future<Recommendation> createRecommendation(Recommendation recommendation) async {
+    final model = await remoteDataSource.createRecommendation(
+      RecommendationModel.fromEntity(recommendation),
+    );
+    return model.toEntity();
   }
 }

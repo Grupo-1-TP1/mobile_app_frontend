@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:mobile_app_frontend/expenses/domain/entities/account.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/prediction.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/recurring_transaction.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/ml_service_io.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/shared/presentation/widgets/common_widgets.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
-import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/ml_service.dart';
 
 class RegisterTransactionScreen extends StatefulWidget {
   final String type;
@@ -42,6 +43,8 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
   bool _isRecurring = false;
   String _selectedFrequency = 'monthly'; // Valor por defecto
   final List<String> _frequencies = ['daily', 'weekly', 'monthly', 'yearly'];
+
+  double _currentConfidenceScore = 1.0;
 
   @override
   void initState() {
@@ -98,9 +101,13 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
       if (!mlService.isInitialized) return;
       try {
         final predictedId = await mlService.classifyCategory(text);
+        final confidence = await mlService.getLatestConfidenceScore();
         if (_categories.any((c) => c.id == predictedId)) {
           if (!mounted) return;
-          setState(() => _selectedCategoryId = predictedId);
+          setState(() {
+            _selectedCategoryId = predictedId;
+            _currentConfidenceScore = confidence;
+          });
         }
       } catch (_) {
         /* ignorar errores de ML */
@@ -176,7 +183,23 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
           transactionDate: selectedDate,
         );
 
-        await ExpensesDI.transactionService.createTransaction(transaction);
+        final createdTransaction = await ExpensesDI.transactionService
+            .createTransaction(transaction);
+
+        double finalScore = _currentConfidenceScore;
+        if (transaction.categoryId != _selectedCategoryId) {
+          finalScore = 1.0;
+        }
+
+        final predictionPayload = Prediction(
+          id: null,
+          confidenceScore: finalScore,
+          categoryId: createdTransaction.categoryId,
+          text: createdTransaction.description ?? 'Sin descripción',
+          transactionId: createdTransaction.id!,
+        );
+
+        await ExpensesDI.predictionService.createPrediction(predictionPayload);
       }
 
       if (!mounted) return;

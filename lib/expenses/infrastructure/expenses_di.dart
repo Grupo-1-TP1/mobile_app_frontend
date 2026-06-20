@@ -1,6 +1,8 @@
 import 'package:mobile_app_frontend/expenses/application/services/account_service.dart';
 import 'package:mobile_app_frontend/expenses/application/services/budget_service.dart';
 import 'package:mobile_app_frontend/expenses/application/services/category_service.dart';
+import 'package:mobile_app_frontend/expenses/application/services/prediction_service.dart';
+import 'package:mobile_app_frontend/expenses/application/services/recommendation_service.dart';
 import 'package:mobile_app_frontend/expenses/application/services/recurring_transaction_service.dart';
 import 'package:mobile_app_frontend/expenses/application/services/saving_goal_service.dart';
 import 'package:mobile_app_frontend/expenses/application/services/transaction_service.dart';
@@ -26,4 +28,6 @@ class ExpensesDI {
   static final recurringTransactionService = RecurringTransactionService(repository);
   static final budgetService = BudgetService(repository);
   static final savingGoalService = SavingGoalService(repository);
+  static final predictionService = PredictionService(repository);
+  static final recommendationService = RecommendationService(repository);
 }

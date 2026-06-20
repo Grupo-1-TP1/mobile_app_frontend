@@ -2,7 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_app_frontend/routes/router.dart';
 import 'package:mobile_app_frontend/shared/infrastructure/push_notifications_service.dart';
-import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/ml_service.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/ml_service_io.dart';
 import 'package:mobile_app_frontend/shared/infrastructure/services/storage_service.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'firebase_options.dart';

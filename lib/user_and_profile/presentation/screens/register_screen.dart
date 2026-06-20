@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/privacy_policy.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -207,11 +209,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     TextSpan(
                                       text: 'Términos de servicio',
                                       style: TextStyle(color: _accent),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () =>
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const PrivacyPolicyScreen(),
+                                              ),
+                                            ),
                                     ),
                                     const TextSpan(text: ' y la '),
                                     TextSpan(
                                       text: 'Política de privacidad',
                                       style: TextStyle(color: _accent),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () =>
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const PrivacyPolicyScreen(),
+                                              ),
+                                            ),
                                     ),
                                     const TextSpan(text: ' de Finio'),
                                   ],

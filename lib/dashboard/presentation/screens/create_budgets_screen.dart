@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/manual_budget_screen.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/budget.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/recommendation.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/recommendation_detail.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
@@ -93,33 +95,80 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         await budgetRecommendationService.loadModel();
       }
 
-      final Map<int, double> spentByCategory = {};
-      final Map<int, int> countByCategory = {};
-
-      for (final tx in _transactions) {
-        if (tx.type.toLowerCase() != 'expense') continue;
-        spentByCategory[tx.categoryId] =
-            (spentByCategory[tx.categoryId] ?? 0) + tx.amount;
-        countByCategory[tx.categoryId] =
-            (countByCategory[tx.categoryId] ?? 0) + 1;
-      }
-
       final Map<int, double> suggestions = {};
-      for (final category in _categories) {
-        final id = category.id;
-        if (id == null) continue;
 
-        final totalSpent = spentByCategory[id] ?? 0.0;
-        final txCount = countByCategory[id] ?? 0;
-        final avgSpent = txCount > 0 ? totalSpent / txCount : 0.0;
+      final bool isColdStart = _transactions
+          .where((tx) => tx.type.toLowerCase() == 'expense')
+          .isEmpty;
 
-        final predicted = await budgetRecommendationService.recommendBudget(
-          categoryId: id,
-          totalSpent: totalSpent,
-          transactionCount: txCount,
-          averageSpent: avgSpent,
+      if (isColdStart) {
+        final userAccounts = await ExpensesDI.accountService
+            .getAccountsByUserId(_user!.id);
+
+        double totalBalance = 0.0;
+        for (final account in userAccounts) {
+          totalBalance += account.balance;
+        }
+
+        if (totalBalance <= 0) totalBalance = 800.0;
+
+        final Map<int, double> universityPercentages = {
+          1: 0.30, // 🍔 Alimentación (30%)
+          2: 0.15, // 🚌 Transporte (15%)
+          3: 0.20, // 🎓 Estudios (20%)
+          4: 0.10, // 🎮 Entretenimiento (10%)
+          5: 0.08, // 💡 Servicios (8%)
+          6: 0.10, // 💰 Ahorro (10%)
+          7: 0.02, // 🏠 Vivienda (2%)
+          8: 0.05, // ❓ Otros (5%)
+        };
+
+        for (final category in _categories) {
+          final id = category.id ?? -1;
+          final weight = universityPercentages[id] ?? 0.05;
+          suggestions[id] = double.parse(
+            (totalBalance * weight).toStringAsFixed(0),
+          );
+        }
+
+        double currentTotalSuggested = suggestions.values.fold(
+          0,
+          (sum, item) => sum + item,
         );
-        suggestions[id] = double.parse(predicted.toStringAsFixed(0));
+        double difference = totalBalance - currentTotalSuggested;
+
+        if (difference != 0 && _categories.isNotEmpty) {
+          final firstCatId = _categories.first.id ?? -1;
+          suggestions[firstCatId] = (suggestions[firstCatId] ?? 0) + difference;
+        }
+      } else {
+        final Map<int, double> spentByCategory = {};
+        final Map<int, int> countByCategory = {};
+
+        for (final tx in _transactions) {
+          if (tx.type.toLowerCase() != 'expense') continue;
+          spentByCategory[tx.categoryId] =
+              (spentByCategory[tx.categoryId] ?? 0) + tx.amount;
+          countByCategory[tx.categoryId] =
+              (countByCategory[tx.categoryId] ?? 0) + 1;
+        }
+
+        for (final category in _categories) {
+          final id = category.id;
+          if (id == null) continue;
+
+          final totalSpent = spentByCategory[id] ?? 0.0;
+          final txCount = countByCategory[id] ?? 0;
+          final avgSpent = txCount > 0 ? totalSpent / txCount : 0.0;
+
+          final predicted = await budgetRecommendationService.recommendBudget(
+            categoryId: id,
+            totalSpent: totalSpent,
+            transactionCount: txCount,
+            averageSpent: avgSpent,
+          );
+          suggestions[id] = double.parse(predicted.toStringAsFixed(0));
+        }
       }
 
       if (!mounted) return;
@@ -127,7 +176,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         _suggestedBudgets = suggestions;
       });
     } catch (e) {
-      print("Error en inferencia local: $e");
+      print("Error al procesar recomendaciones de presupuesto: $e");
     } finally {
       if (mounted) setState(() => _mlLoading = false);
     }
@@ -140,11 +189,24 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     final now = DateTime.now();
 
     try {
+      final List<RecommendationDetail> recommendationDetails = [];
       final List<Future> saveFutures = [];
 
       _suggestedBudgets.forEach((catId, recommendedAmount) {
         if (recommendedAmount <= 0) return;
 
+        final actualLimit = _assignedBudgetsAmount[catId] ?? 0.0;
+
+        // 1. Añadimos el sub-detalle para la auditoría de cambio financiero de la IA
+        recommendationDetails.add(
+          RecommendationDetail(
+            categoryId: catId,
+            currentLimit: actualLimit,
+            suggestedLimit: recommendedAmount,
+          ),
+        );
+
+        // 2. Preparamos el save futuro de cada presupuesto individual
         final newBudget = Budget(
           id: null,
           userId: _user!.id,
@@ -156,8 +218,32 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         saveFutures.add(ExpensesDI.budgetService.createBudget(newBudget));
       });
 
-      await Future.wait(saveFutures);
+      // 3. Empaquetamos la raíz de la recomendación con los detalles mapeados
+      final projectedSavings = _calculateProjectedSavings();
+      final fullRecommendation = Recommendation(
+        id: null,
+        userId: _user!.id,
+        projectedSavings: projectedSavings,
+        details: recommendationDetails,
+      );
+
+      // 4. Mandamos todo a Azure concurrentemente mediante Future.wait
+      await Future.wait([
+        ...saveFutures,
+        ExpensesDI.recommendationService.createRecommendation(
+          fullRecommendation,
+        ),
+      ]);
+
       if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Presupuestos y optimizaciones de la IA aplicados con éxito',
+          ),
+        ),
+      );
       context.pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -196,7 +282,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.darkBg,
         elevation: 0,
-        // Manteniendo las propiedades de estilo previas y eliminando por completo el 'bottom: TabBar'
         title: const Text(
           'Creación de presupuesto',
           style: TextStyle(
@@ -209,7 +294,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // 📊 Encabezados de columnas de la lista comparativa
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               child: Row(
@@ -252,7 +336,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             ),
             const SizedBox(height: 8),
 
-            // Lista flexible optimizada de categorías
             Expanded(
               child: ListView.separated(
                 itemCount: _categories.length,
@@ -278,7 +361,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '$emoji  ${c.name}',
+                              '$emoji   ${c.name}',
                               style: const TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontWeight: FontWeight.w600,
@@ -383,7 +466,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Proyección de ahorro
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -413,13 +495,11 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Botonera de acciones fija inferior
             SafeArea(
               top: false,
               left: false,
               right: false,
-              bottom:
-                  true, // Esto empuja los botones hacia arriba de la barra de Android
+              bottom: true,
               child: Row(
                 children: [
                   Expanded(

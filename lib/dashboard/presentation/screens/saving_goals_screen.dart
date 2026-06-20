@@ -174,7 +174,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                      itemCount: goals.length + (_confirmDeleteGoalId != null ? 1 : 0),
+                      itemCount:
+                          goals.length + (_confirmDeleteGoalId != null ? 1 : 0),
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         if (_confirmDeleteGoalId != null && index == 1) {
@@ -184,7 +185,8 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                           return _buildDeleteConfirmCard(goalToDelete);
                         }
 
-                        final adjustedIndex = _confirmDeleteGoalId != null && index > 1
+                        final adjustedIndex =
+                            _confirmDeleteGoalId != null && index > 1
                             ? index - 1
                             : index;
 
@@ -223,9 +225,9 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                                     ),
                                     alignment: Alignment.center,
                                     child: Icon(
-                                      Icons.flag_rounded, 
-                                      color: accentColor, 
-                                      size: 20
+                                      Icons.flag_rounded,
+                                      color: accentColor,
+                                      size: 20,
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -281,13 +283,18 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> {
                                 child: LinearProgressIndicator(
                                   value: progress,
                                   minHeight: 8,
-                                  backgroundColor: Colors.white.withOpacity(0.08),
-                                  valueColor: AlwaysStoppedAnimation(accentColor),
+                                  backgroundColor: Colors.white.withOpacity(
+                                    0.08,
+                                  ),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    accentColor,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'S/ ${goal.currentAmount.toStringAsFixed(0)} ahorrado',

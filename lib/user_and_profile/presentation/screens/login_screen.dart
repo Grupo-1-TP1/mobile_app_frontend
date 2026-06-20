@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/user_and_profile/presentation/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -138,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        // Implementar lógica de recuperación
+                        context.go('/password-recovery');
                       },
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -229,7 +231,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextSpan(
                             text: 'Regístrate',
                             style: const TextStyle(color: _accent),
-                            // Aquí puedes añadir: recognizer: TapGestureRecognizer()..onTap = () => Navigator.push(...)
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const RegisterScreen(),
+                                ),
+                              ),
                           ),
                         ],
                       ),
