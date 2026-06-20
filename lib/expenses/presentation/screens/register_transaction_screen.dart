@@ -202,8 +202,7 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
         await ExpensesDI.predictionService.createPrediction(predictionPayload);
       }
 
-      if (!mounted) return;
-
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -211,9 +210,15 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
                 ? 'Transacción recurrente programada'
                 : 'Transacción creada correctamente',
           ),
+          duration: const Duration(seconds: 2),
         ),
       );
-      Navigator.pop(context, true);
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

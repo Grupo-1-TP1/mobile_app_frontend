@@ -39,6 +39,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
+    setState(() {
+      _loading = true; // 🔥 Activa el spinner inmediatamente al llamarse
+    });
     try {
       final transactions = await ExpensesDI.transactionService
           .getTransactionsByUserId(widget.user.id);
@@ -72,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _displayName = profileName;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
@@ -87,11 +90,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return nameParts[0][0].toUpperCase();
   }
 
-  double get _totalBalance =>
-      _accounts.fold<double>(0, (sum, account) => sum + account.availableBalance);
+  double get _totalBalance => _accounts.fold<double>(
+    0,
+    (sum, account) => sum + account.availableBalance,
+  );
 
   double get _totalSavingsFund =>
-    _accounts.fold<double>(0, (sum, account) => sum + account.savingsFund);
+      _accounts.fold<double>(0, (sum, account) => sum + account.savingsFund);
 
   double get _totalIncomes => _transactions
       .where((t) => t.type.toLowerCase() == 'income')
@@ -107,7 +112,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (savings <= 0) return 0;
     return ((savings / _totalIncomes) * 100).round();
   }
-
 
   List<_BudgetItem> get _budgetItems {
     final categoryMap = {
@@ -281,19 +285,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icons.add_circle,
                   'Registrar\nIngreso',
                   Colors.green,
-                  onTap: () => context.push('/home/transaction/income'),
+                  onTap: () async {
+                    final result = await context.push<bool>(
+                      '/home/transaction/expense',
+                    );
+                    if (result == true) {
+                      _loadData();
+                    }
+                  },
                 ),
                 _ActionButton(
                   Icons.remove_circle,
                   'Registrar\nGasto',
                   Colors.red,
-                  onTap: () => context.push('/home/transaction/expense'),
+                  onTap: () async {
+                    final result = await context.push(
+                      '/home/transaction/expense',
+                    );
+                    if (result == true) _loadData();
+                  },
                 ),
                 _ActionButton(
                   Icons.history,
                   'Historial',
                   Colors.blue,
-                  onTap: () => context.push('/home/history'),
+                  onTap: () async {
+                    final result = await context.push('/home/history');
+                    if (result == true) _loadData();
+                  },
                 ),
               ],
             ),
@@ -310,7 +329,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => context.push('/home/budgets'),
+                  onPressed: () async {
+                    final result = await context.push('/home/budgets');
+                    if (result == true) _loadData();
+                  },
                   child: const Text('Ver todos'),
                 ),
               ],

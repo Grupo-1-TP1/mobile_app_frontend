@@ -97,9 +97,15 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
       final Map<int, double> suggestions = {};
 
-      final bool isColdStart = _transactions
-          .where((tx) => tx.type.toLowerCase() == 'expense')
-          .isEmpty;
+      final now = DateTime.now();
+      final int targetMonth = now.month == 1 ? 12 : now.month - 1;
+      final int targetYear = now.month == 1 ? now.year - 1 : now.year;
+
+      final bool isColdStart = _transactions.where((tx) {
+        if (tx.type.toLowerCase() != 'expense') return false;
+        final txDate = tx.transactionDate;
+        return txDate.month == targetMonth && txDate.year == targetYear;
+      }).isEmpty;
 
       if (isColdStart) {
         final userAccounts = await ExpensesDI.accountService
@@ -147,6 +153,11 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
         for (final tx in _transactions) {
           if (tx.type.toLowerCase() != 'expense') continue;
+
+          final txDate = tx.transactionDate;
+          if (txDate.month != targetMonth || txDate.year != targetYear)
+            continue;
+
           spentByCategory[tx.categoryId] =
               (spentByCategory[tx.categoryId] ?? 0) + tx.amount;
           countByCategory[tx.categoryId] =
@@ -197,7 +208,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
         final actualLimit = _assignedBudgetsAmount[catId] ?? 0.0;
 
-        // 1. Añadimos el sub-detalle para la auditoría de cambio financiero de la IA
         recommendationDetails.add(
           RecommendationDetail(
             categoryId: catId,
@@ -206,7 +216,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           ),
         );
 
-        // 2. Preparamos el save futuro de cada presupuesto individual
         final newBudget = Budget(
           id: null,
           userId: _user!.id,
@@ -218,7 +227,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         saveFutures.add(ExpensesDI.budgetService.createBudget(newBudget));
       });
 
-      // 3. Empaquetamos la raíz de la recomendación con los detalles mapeados
       final projectedSavings = _calculateProjectedSavings();
       final fullRecommendation = Recommendation(
         id: null,
@@ -227,7 +235,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         details: recommendationDetails,
       );
 
-      // 4. Mandamos todo a Azure concurrentemente mediante Future.wait
       await Future.wait([
         ...saveFutures,
         ExpensesDI.recommendationService.createRecommendation(
