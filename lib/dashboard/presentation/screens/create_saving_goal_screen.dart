@@ -131,7 +131,7 @@ class _CreateSavingGoalScreenState extends State<CreateSavingGoalScreen> {
         deadline: _predictedDeadline!,
       );
 
-      // Guardamos la meta y asumimos que tu backend retorna la entidad creada con su ID (ej. 4)
+      // Guardamos la meta
       final createdGoal = await ExpensesDI.savingGoalService.createSavingGoal(
         goal,
       );

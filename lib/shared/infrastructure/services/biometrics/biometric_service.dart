@@ -15,7 +15,6 @@ class BiometricService {
     }
   }
 
-  /// Autenticación compatible con la versión 3.x.x en Android
   Future<bool> authenticate({
     required String reason,
     required bool onlyBiometrics,
@@ -23,9 +22,7 @@ class BiometricService {
     try {
       return await _auth.authenticate(
         localizedReason: reason,
-        // CONFIGURACIÓN 3.X: Reemplaza a 'stickyAuth'
         persistAcrossBackgrounding: true,
-        // CONFIGURACIÓN 3.X: true obliga Huella, false permite PIN de respaldo
         biometricOnly: onlyBiometrics,
         authMessages: const <AuthMessages>[
           AndroidAuthMessages(

@@ -19,8 +19,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // 🛠️ CORRECCIÓN: Volvemos a kotlinOptions tradicional, compatible con tu versión de Kotlin
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -34,6 +35,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Proguard con sintaxis exacta .kts
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
