@@ -43,13 +43,27 @@ class _HomeScreenState extends State<HomeScreen> {
       _loading = true; // 🔥 Activa el spinner inmediatamente al llamarse
     });
     try {
+      final now = DateTime.now();
+      final int currentMonth = now.month;
+      final int currentYear = now.year;
+
+      // 2. OBTENCIÓN CON FILTRADO TEMPORAL: Solo se extraen registros del mes activo
       final transactions = await ExpensesDI.transactionService
-          .getTransactionsByUserId(widget.user.id);
+          .getTransactionsByUserIdAndMonthAndYear(
+            widget.user.id,
+            currentMonth,
+            currentYear,
+          );
+
+      final budgets = await ExpensesDI.budgetService
+          .getBudgetByUserIdAndMonthAndYear(
+            widget.user.id,
+            currentMonth,
+            currentYear,
+          );
+
       final categories = await ExpensesDI.categoryService.getCategories();
       final accounts = await ExpensesDI.accountService.getAccountsByUserId(
-        widget.user.id,
-      );
-      final budgets = await ExpensesDI.budgetService.getBudgetsByUserId(
         widget.user.id,
       );
 

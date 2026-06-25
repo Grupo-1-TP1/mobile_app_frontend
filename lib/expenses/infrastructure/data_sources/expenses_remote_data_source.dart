@@ -228,6 +228,42 @@ class ExpensesRemoteDataSource {
     return _readSingle(response, RecommendationModel.fromJson);
   }
 
+  Future<List<BudgetModel>> getBudgetByUserIdAndMonthAndYear(int userId, int month, int year) async {
+    final response = await client.get(
+      Uri.parse('$baseUrl/api/v1/budgets/user/$userId/date').replace(queryParameters: {
+        'month': month.toString(),
+        'year': year.toString()
+      }),
+      headers: _authHeaders(),
+    );
+    return _readList(response, BudgetModel.fromJson);
+  }
+
+  Future<List<TransactionModel>> getTransactionsByUserIdAndMonthAndYear(int userId, int month, int year) async {
+    final response = await client.get(
+      Uri.parse('$baseUrl/api/v1/transactions/user/$userId/date').replace(queryParameters: {
+        'month': month.toString(),
+        'year': year.toString()
+      }),
+      headers: _authHeaders(),
+    );
+    return _readList(response, TransactionModel.fromJson);
+  }
+
+  Future<TransactionModel> updateTransaction(int transactionId, int categoryId, double amount, String description) async {
+    
+    final response = await client.put(
+      Uri.parse('$baseUrl/api/v1/transactions/$transactionId'),
+      headers: _jsonAuthHeaders(),
+      body: jsonEncode({
+        'categoryId': categoryId,
+        'amount': amount,
+        'description': description,
+      }),
+    );
+    return _readSingle(response, TransactionModel.fromJson);
+  }
+
   List<T> _readList<T>(http.Response response, T Function(Map<String, dynamic>) parser) {
     _ensureSuccess(response);
     final decoded = jsonDecode(response.body);

@@ -21,6 +21,7 @@ abstract class ExpensesRepository {
   Future<List<Transaction>> getTransactionsByUserId(int userId);
   Future<Transaction> createTransaction(Transaction transaction);
   Future<void> deleteTransaction(int transactionId);
+  Future<List<Transaction>> getTransactionsByUserIdAndMonthAndYear(int userId, int month, int year);
 
   Future<List<RecurringTransaction>> getRecurringTransactionsByUserId(int userId);
   Future<RecurringTransaction> createRecurringTransaction(RecurringTransaction transaction);
@@ -31,6 +32,7 @@ abstract class ExpensesRepository {
   Future<Budget> createBudget(Budget budget);
   Future<Budget> getBudgetById(int budgetId);
   Future<void> deleteBudget(int budgetId);
+  Future<List<Budget>> getBudgetByUserIdAndMonthAndYear(int userId, int month, int year);
 
   Future<List<SavingGoal>> getSavingGoalsByUserId(int userId);
   Future<SavingGoal> createSavingGoal(SavingGoal savingGoal);

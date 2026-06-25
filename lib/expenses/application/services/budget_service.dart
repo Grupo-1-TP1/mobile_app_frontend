@@ -21,4 +21,8 @@ class BudgetService {
   Future<void> deleteBudget(int budgetId) {
     return repository.deleteBudget(budgetId);
   }
+
+  Future<List<Budget>> getBudgetByUserIdAndMonthAndYear(int userId, int month, int year) {
+    return repository.getBudgetByUserIdAndMonthAndYear(userId, month, year);
+  }
 }

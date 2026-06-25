@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
 import 'package:mobile_app_frontend/user_and_profile/infrastructure/auth_di.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
 
 class DashboardReportScreen extends StatefulWidget {
   const DashboardReportScreen({Key? key}) : super(key: key);
@@ -13,11 +14,14 @@ class DashboardReportScreen extends StatefulWidget {
 
 class _DashboardReportScreenState extends State<DashboardReportScreen> {
   bool _loading = true;
-  String _selectedMonthStr = 'Jun 2026';
-  int _selectedMonthInt = 6;
-  int _selectedYearInt = 2026;
 
-  List<dynamic> _allTransactions = [];
+  // Variables de control de periodos dinámicos
+  late int _selectedMonthInt;
+  late int _selectedYearInt;
+
+  List<Transaction> _monthTransactions = [];
+  List<Transaction> _allHistoricalTransactions =
+      []; // Para el gráfico de evolución lineal
 
   double _totalIngresos = 0.0;
   double _totalGastos = 0.0;
@@ -75,26 +79,44 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedMonthInt = now.month;
+    _selectedYearInt = now.year;
     _loadBackendData();
   }
 
   Future<void> _loadBackendData() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+
     try {
       final user = await AuthDI.userRepository.getCurrentUser();
       if (user == null) return;
 
-      final txs = await ExpensesDI.transactionService.getTransactionsByUserId(
-        user.id,
-      );
-      _allTransactions = txs;
+      // 1. Carga optimizada del mes filtrado (Evita colapsos de memoria transformando a String)
+      final txsMes = await ExpensesDI.transactionService
+          .getTransactionsByUserIdAndMonthAndYear(
+            user.id,
+            _selectedMonthInt,
+            _selectedYearInt,
+          );
+
+      // 2. Traer el historial completo únicamente para trazar la línea de evolución de meses
+      final txsHistoricas = await ExpensesDI.transactionService
+          .getTransactionsByUserId(user.id);
+
+      setState(() {
+        _monthTransactions = txsMes;
+        _allHistoricalTransactions = txsHistoricas;
+      });
 
       _calculateReportMetrics();
       _calculateEvolutionData();
     } catch (e) {
-      if (!mounted) return; 
-      
+      debugPrint('❌ Error cargando reportes: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text('Error al sincronizar métricas: $e')),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -106,19 +128,17 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
     double gastosMes = 0.0;
     final Map<int, double> gastosPorCat = {};
 
-    for (final tx in _allTransactions) {
-      final date = tx.transactionDate;
+    // Computar sobre la lista pre-filtrada del mes actual
+    for (final tx in _monthTransactions) {
       final isExpense = tx.type.toLowerCase() == 'expense';
       final isIncome = tx.type.toLowerCase() == 'income';
       final amount = tx.amount.toDouble();
 
-      if (date.month == _selectedMonthInt && date.year == _selectedYearInt) {
-        if (isIncome) ingresosMes += amount;
-        if (isExpense) {
-          gastosMes += amount;
-          final catId = tx.categoryId;
-          gastosPorCat[catId] = (gastosPorCat[catId] ?? 0.0) + amount;
-        }
+      if (isIncome) ingresosMes += amount;
+      if (isExpense) {
+        gastosMes += amount;
+        final catId = tx.categoryId;
+        gastosPorCat[catId] = (gastosPorCat[catId] ?? 0.0) + amount;
       }
     }
 
@@ -170,12 +190,19 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
   }
 
   void _calculateEvolutionData() {
-    if (_allTransactions.isEmpty) return;
+    // 1. LIMPIEZA DE SEGURIDAD: Resetear los estados anteriores para evitar que se mezclen datos viejos
+    setState(() {
+      _ingresosSpots = [];
+      _gastosSpots = [];
+      _monthLabels = {};
+    });
+
+    if (_allHistoricalTransactions.isEmpty) return;
 
     Map<int, Map<String, double>> monthlyTotals = {};
     Set<int> monthsPresent = {};
 
-    for (final tx in _allTransactions) {
+    for (final tx in _allHistoricalTransactions) {
       final date = tx.transactionDate;
       final month = date.month;
       final amount = tx.amount.toDouble();
@@ -202,15 +229,16 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
     Map<int, String> labels = {};
     double maxVal = 0;
 
+    // CASO A: El usuario es nuevo o solo tiene transacciones registradas en un único mes histórico
     if (sortedMonths.length == 1) {
       int unicoMes = sortedMonths[0];
       double income = monthlyTotals[unicoMes]?['income'] ?? 0.0;
       double expense = monthlyTotals[unicoMes]?['expense'] ?? 0.0;
       maxVal = income > expense ? income : expense;
 
+      // Creamos un rango artificial plano [0 a 1] para que fl_chart pueda dibujar la línea recta
       incomeSpots.add(FlSpot(0, income));
       incomeSpots.add(FlSpot(1, income));
-
       expenseSpots.add(FlSpot(0, expense));
       expenseSpots.add(FlSpot(1, expense));
 
@@ -229,6 +257,7 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       return;
     }
 
+    // CASO B: Flujo normal multilperiodo (Múltiples meses con datos en la BD)
     for (int i = 0; i < sortedMonths.length; i++) {
       int month = sortedMonths[i];
       double x = i.toDouble();
@@ -243,13 +272,16 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
       if (expense > maxVal) maxVal = expense;
     }
 
+    // 2. ACTUALIZACIÓN DEL ESTADO: Forzar el redibujado con los límites exactos calculados
     setState(() {
       _ingresosSpots = incomeSpots;
       _gastosSpots = expenseSpots;
       _minX = 0;
       _maxX = (sortedMonths.length - 1).toDouble();
       _minY = 0;
-      _maxY = maxVal > 0 ? (maxVal * 1.2).ceilToDouble() : 100.0;
+      _maxY = maxVal > 0
+          ? (maxVal * 1.25).ceilToDouble()
+          : 100.0; // Añade un 25% de margen superior visual
       _monthLabels = labels;
     });
   }
@@ -259,7 +291,9 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
     if (_loading) {
       return const Scaffold(
         backgroundColor: AppTheme.darkBg,
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+        ),
       );
     }
 
@@ -307,7 +341,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
               ],
             ),
             const SizedBox(height: 24),
-
             Text(
               'Gastos por categoría',
               style: TextStyle(
@@ -317,7 +350,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(
@@ -340,7 +372,7 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
                             children: [
                               Text(
                                 'S/ ${_totalGastos.toStringAsFixed(0)}',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: AppTheme.textPrimary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -381,7 +413,7 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
                             const SizedBox(width: 8),
                             Text(
                               '${cat['name']} ${cat['pct']}',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -396,7 +428,6 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
               ],
             ),
             const SizedBox(height: 24),
-
             Text(
               'Evolución mensual',
               style: TextStyle(
@@ -490,6 +521,7 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
     );
   }
 
+  // CORREGIDO: Menu Dropdown estructurado dinámicamente con los 12 meses del periodo actual
   Widget _buildMonthDropdown() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -498,28 +530,29 @@ class _DashboardReportScreenState extends State<DashboardReportScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedMonthStr,
+        child: DropdownButton<int>(
+          value: _selectedMonthInt,
           dropdownColor: AppTheme.cardBg,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppTheme.textPrimary,
             fontWeight: FontWeight.w600,
           ),
           icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-          onChanged: (String? newValue) {
+          onChanged: (int? newValue) {
             if (newValue != null) {
               setState(() {
-                _selectedMonthStr = newValue;
-                _selectedMonthInt = newValue.startsWith('Jun') ? 6 : 4;
+                _selectedMonthInt = newValue;
               });
-              _calculateReportMetrics();
+              _loadBackendData(); // Vuelve a consultar al servidor con el nuevo filtro
             }
           },
-          items: <String>['Abr 2026', 'Jun 2026'].map<DropdownMenuItem<String>>(
-            (String value) {
-              return DropdownMenuItem<String>(value: value, child: Text(value));
-            },
-          ).toList(),
+          items: List.generate(12, (index) {
+            final monthIndex = index + 1;
+            return DropdownMenuItem<int>(
+              value: monthIndex,
+              child: Text('${_monthNames[monthIndex]} $_selectedYearInt'),
+            );
+          }),
         ),
       ),
     );

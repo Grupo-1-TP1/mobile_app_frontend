@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/budgets_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/saving_goals_screen.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/budget_recommendation/budget_recommendation_service_io.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/expense_classifier_service_io.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/home_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/screens/profile_screen.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
@@ -23,6 +25,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   List<Widget> _pages = <Widget>[];
   User? _currentUser;
   bool _loading = true;
+  bool _isIaReady = false;
 
   @override
   void initState() {
