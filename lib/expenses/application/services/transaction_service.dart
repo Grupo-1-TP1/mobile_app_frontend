@@ -17,4 +17,8 @@ class TransactionService {
   Future<void> deleteTransaction(int transactionId) {
     return repository.deleteTransaction(transactionId);
   }
+
+  Future<List<Transaction>> getTransactionsByUserIdAndMonthAndYear(int userId, int month, int year) {
+    return repository.getTransactionsByUserIdAndMonthAndYear(userId, month, year);
+  }
 }

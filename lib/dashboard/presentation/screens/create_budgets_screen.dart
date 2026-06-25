@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/dashboard/presentation/screens/ai_thinking_loader.dart';
 import 'package:mobile_app_frontend/dashboard/presentation/screens/manual_budget_screen.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/budget.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
@@ -23,12 +24,24 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
   bool _loading = true;
   User? _user;
   List<Category> _categories = [];
-  List<Transaction> _transactions = [];
+  List<Transaction> _lastMonthTransactions =
+      []; // Cambiado de nombre para mayor claridad
   bool _mlLoading = false;
   bool _saving = false;
 
   Map<int, double> _suggestedBudgets = {};
   Map<int, double> _assignedBudgetsAmount = {};
+
+  final Map<String, int> _onnxCategoryToId = {
+    "alimentacion": 1,
+    "transporte": 2,
+    "estudios": 3,
+    "entretenimiento": 4,
+    "servicios": 5,
+    "transferencias": 6,
+    "vivienda": 7,
+    "otros": 8,
+  };
 
   final Map<int, String> _categoryEmojis = {
     1: "🍔",
@@ -56,37 +69,50 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     }
 
     try {
-      final txs = await ExpensesDI.transactionService.getTransactionsByUserId(
-        user.id,
-      );
+      // Calcular de forma exacta el periodo del mes anterior (Target para la IA)
+      final now = DateTime.now();
+      final int targetMonth = now.month == 1 ? 12 : now.month - 1;
+      final int targetYear = now.month == 1 ? now.year - 1 : now.year;
+
+      // 1. OBTENCIÓN DE DATOS OPTIMIZADA: Solo se descarga lo necesario para el periodo target
+      final lastMonthTxs = await ExpensesDI.transactionService
+          .getTransactionsByUserIdAndMonthAndYear(
+            user.id,
+            targetMonth,
+            targetYear,
+          );
+
+      final previousBudgets = await ExpensesDI.budgetService
+          .getBudgetByUserIdAndMonthAndYear(user.id, targetMonth, targetYear);
+
       final cats = await ExpensesDI.categoryService.getCategories();
-      final budgets = await ExpensesDI.budgetService.getBudgetsByUserId(
-        user.id,
-      );
 
       if (!mounted) return;
       setState(() {
         _user = user;
         _categories = cats;
-        _transactions = txs;
+        _lastMonthTransactions = lastMonthTxs;
 
+        // Mapear los montos de presupuesto asignados del periodo anterior
         _assignedBudgetsAmount = {
-          for (final b in budgets) b.categoryId: b.amount,
+          for (final b in previousBudgets) b.categoryId: b.amount,
         };
 
         _loading = false;
       });
-      await _loadMLRecommendations();
+
+      // Lanzar inferencia del modelo
+      await _loadMLRecommendations(targetMonth, targetYear);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error cargando datos de Azure: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error cargando datos: $e')));
     }
   }
 
-  Future<void> _loadMLRecommendations() async {
+  Future<void> _loadMLRecommendations(int targetMonth, int targetYear) async {
     if (_user == null || _categories.isEmpty) return;
     setState(() => _mlLoading = true);
 
@@ -97,89 +123,87 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
 
       final Map<int, double> suggestions = {};
 
-      final now = DateTime.now();
-      final int targetMonth = now.month == 1 ? 12 : now.month - 1;
-      final int targetYear = now.month == 1 ? now.year - 1 : now.year;
+      // 2. CALCULO DE INGRESOS MENSUALES OPTIMIZADO:
+      // Como el dataset ya viene filtrado por mes anterior desde la base de datos,
+      // solo sumamos los montos de tipo 'income' de forma directa sin ifs de fecha.
+      double calculatedMonthlyIncome = 0.0;
+      for (final tx in _lastMonthTransactions) {
+        if (tx.type.toLowerCase() == 'income') {
+          calculatedMonthlyIncome += tx.amount;
+        }
+      }
 
-      final bool isColdStart = _transactions.where((tx) {
-        if (tx.type.toLowerCase() != 'expense') return false;
-        final txDate = tx.transactionDate;
-        return txDate.month == targetMonth && txDate.year == targetYear;
-      }).isEmpty;
+      // Fallback: Si no hay ingresos, revisamos el saldo global de cuentas
+      final userAccounts = await ExpensesDI.accountService.getAccountsByUserId(
+        _user!.id,
+      );
+      if (calculatedMonthlyIncome <= 0 && userAccounts.isNotEmpty) {
+        for (final account in userAccounts) {
+          calculatedMonthlyIncome += account.balance;
+        }
+      }
+      if (calculatedMonthlyIncome <= 0) calculatedMonthlyIncome = 1200.0;
+
+      // 3. EVALUACIÓN DE COLD START OPTIMIZADA
+      // Al venir filtradas por la BD, si la lista de transacciones no contiene gastos, es un Cold Start.
+      final bool isColdStart = _lastMonthTransactions
+          .where((tx) => tx.type.toLowerCase() == 'expense')
+          .isEmpty;
 
       if (isColdStart) {
-        final userAccounts = await ExpensesDI.accountService
-            .getAccountsByUserId(_user!.id);
-
-        double totalBalance = 0.0;
-        for (final account in userAccounts) {
-          totalBalance += account.balance;
-        }
-
-        if (totalBalance <= 0) totalBalance = 800.0;
-
+        // --- LOGICA DE INICIO EN FRÍO (Distribución heurística institucional) ---
         final Map<int, double> universityPercentages = {
-          1: 0.30, // 🍔 Alimentación (30%)
-          2: 0.15, // 🚌 Transporte (15%)
-          3: 0.20, // 🎓 Estudios (20%)
-          4: 0.10, // 🎮 Entretenimiento (10%)
-          5: 0.08, // 💡 Servicios (8%)
-          6: 0.10, // 💰 Ahorro (10%)
-          7: 0.02, // 🏠 Vivienda (2%)
-          8: 0.05, // ❓ Otros (5%)
+          1: 0.25,
+          2: 0.10,
+          3: 0.15,
+          4: 0.10,
+          5: 0.08,
+          6: 0.05,
+          7: 0.22,
+          8: 0.05,
         };
 
         for (final category in _categories) {
           final id = category.id ?? -1;
           final weight = universityPercentages[id] ?? 0.05;
           suggestions[id] = double.parse(
-            (totalBalance * weight).toStringAsFixed(0),
+            (calculatedMonthlyIncome * weight).toStringAsFixed(0),
           );
-        }
-
-        double currentTotalSuggested = suggestions.values.fold(
-          0,
-          (sum, item) => sum + item,
-        );
-        double difference = totalBalance - currentTotalSuggested;
-
-        if (difference != 0 && _categories.isNotEmpty) {
-          final firstCatId = _categories.first.id ?? -1;
-          suggestions[firstCatId] = (suggestions[firstCatId] ?? 0) + difference;
         }
       } else {
-        final Map<int, double> spentByCategory = {};
-        final Map<int, int> countByCategory = {};
+        // --- INFERENCIA CON EL MOTOR MULTIOUTPUT ONNX ---
+        final Map<String, double> previousLimitsInput = {};
+        final Map<String, double> currentExpensesInput = {};
 
-        for (final tx in _transactions) {
+        // Agrupar los gastos del mes por ID de categoría (Ya filtrado por periodo desde el Backend)
+        final Map<int, double> spentByCategoryId = {};
+        for (final tx in _lastMonthTransactions) {
           if (tx.type.toLowerCase() != 'expense') continue;
-
-          final txDate = tx.transactionDate;
-          if (txDate.month != targetMonth || txDate.year != targetYear)
-            continue;
-
-          spentByCategory[tx.categoryId] =
-              (spentByCategory[tx.categoryId] ?? 0) + tx.amount;
-          countByCategory[tx.categoryId] =
-              (countByCategory[tx.categoryId] ?? 0) + 1;
+          spentByCategoryId[tx.categoryId] =
+              (spentByCategoryId[tx.categoryId] ?? 0) + tx.amount;
         }
 
-        for (final category in _categories) {
-          final id = category.id;
-          if (id == null) continue;
+        // Estructurar los mapas de características requeridos por el Isolate de ONNX
+        _onnxCategoryToId.forEach((onnxKey, id) {
+          previousLimitsInput[onnxKey] = _assignedBudgetsAmount[id] ?? 0.0;
+          currentExpensesInput[onnxKey] = spentByCategoryId[id] ?? 0.0;
+        });
 
-          final totalSpent = spentByCategory[id] ?? 0.0;
-          final txCount = countByCategory[id] ?? 0;
-          final avgSpent = txCount > 0 ? totalSpent / txCount : 0.0;
+        // Ejecutar inferencia asíncrona no bloqueante
+        final Map<String, double> rawModelOutput =
+            await budgetRecommendationService.recommendAllBudgets(
+              monthlyIncome: calculatedMonthlyIncome,
+              previousLimits: previousLimitsInput,
+              currentExpenses: currentExpensesInput,
+            );
 
-          final predicted = await budgetRecommendationService.recommendBudget(
-            categoryId: id,
-            totalSpent: totalSpent,
-            transactionCount: txCount,
-            averageSpent: avgSpent,
-          );
-          suggestions[id] = double.parse(predicted.toStringAsFixed(0));
-        }
+        // Mapear los strings del vector de salida ONNX a IDs enteros correlacionados con la BD
+        rawModelOutput.forEach((onnxKey, suggestedAmount) {
+          final int? id = _onnxCategoryToId[onnxKey];
+          if (id != null) {
+            suggestions[id] = double.parse(suggestedAmount.toStringAsFixed(0));
+          }
+        });
       }
 
       if (!mounted) return;
@@ -187,7 +211,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         _suggestedBudgets = suggestions;
       });
     } catch (e) {
-      print("Error al procesar recomendaciones de presupuesto: $e");
+      print("Error processing ML recommendations: $e");
     } finally {
       if (mounted) setState(() => _mlLoading = false);
     }
@@ -227,7 +251,13 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
         saveFutures.add(ExpensesDI.budgetService.createBudget(newBudget));
       });
 
-      final projectedSavings = _calculateProjectedSavings();
+      double totalSuggested = _suggestedBudgets.values.fold(
+        0.0,
+        (sum, val) => sum + val,
+      );
+      double estimatedIncome = totalSuggested * 1.15;
+      double projectedSavings = estimatedIncome - totalSuggested;
+
       final fullRecommendation = Recommendation(
         id: null,
         userId: _user!.id,
@@ -251,11 +281,11 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
           ),
         ),
       );
-      context.pop(true);
+      context.pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar sugerencias: $e')),
+        SnackBar(content: Text('Error al guardar presupuesto inteligente: $e')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -276,9 +306,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
     if (_loading || _mlLoading) {
       return Scaffold(
         backgroundColor: AppTheme.darkBg,
-        body: const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
-        ),
+        body: AiThinkingLoader(),
       );
     }
 
@@ -316,14 +344,14 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                   Row(
                     children: [
                       Text(
-                        'Actual   ',
+                        'Actual    ',
                         style: TextStyle(
                           color: AppTheme.textSecondary,
                           fontSize: 12,
                         ),
                       ),
                       Text(
-                        'ML sugiere   ',
+                        'ML sugiere    ',
                         style: TextStyle(
                           color: AppTheme.textSecondary,
                           fontSize: 12,
@@ -342,7 +370,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               ),
             ),
             const SizedBox(height: 8),
-
             Expanded(
               child: ListView.separated(
                 itemCount: _categories.length,
@@ -368,7 +395,7 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '$emoji   ${c.name}',
+                              '$emoji    ${c.name}',
                               style: const TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontWeight: FontWeight.w600,
@@ -472,7 +499,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -501,7 +527,6 @@ class _CreateBudgetScreenState extends State<CreateBudgetScreen> {
               ),
             ),
             const SizedBox(height: 14),
-
             SafeArea(
               top: false,
               left: false,

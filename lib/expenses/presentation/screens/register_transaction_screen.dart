@@ -6,7 +6,7 @@ import 'package:mobile_app_frontend/expenses/domain/entities/prediction.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/recurring_transaction.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
-import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/ml_service_io.dart';
+import 'package:mobile_app_frontend/shared/infrastructure/services/classifier/expense_classifier_service_io.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
 import 'package:mobile_app_frontend/shared/presentation/widgets/common_widgets.dart';
 import 'package:mobile_app_frontend/user_and_profile/domain/entities/user.dart';
@@ -50,8 +50,8 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
   void initState() {
     super.initState();
     _loadData();
-    if (!mlService.isInitialized) {
-      mlService.loadModels().then((_) => setState(() {}));
+    if (!expenseClassifierService.isInitialized) {
+      expenseClassifierService.loadModel().then((_) => setState(() {}));
     }
     descriptionController.addListener(_onDescriptionChanged);
     amountController.addListener(() => setState(() {}));
@@ -98,19 +98,21 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
     _debounce = Timer(const Duration(milliseconds: 700), () async {
       final text = descriptionController.text.trim();
       if (text.length < 3) return;
-      if (!mlService.isInitialized) return;
+      if (!expenseClassifierService.isInitialized) return;
+
       try {
-        final predictedId = await mlService.classifyCategory(text);
-        final confidence = await mlService.getLatestConfidenceScore();
-        if (_categories.any((c) => c.id == predictedId)) {
+        final ClassificationResult result = await expenseClassifierService
+            .classifyExpense(text);
+
+        if (_categories.any((c) => c.id == result.categoryId)) {
           if (!mounted) return;
           setState(() {
-            _selectedCategoryId = predictedId;
-            _currentConfidenceScore = confidence;
+            _selectedCategoryId = result.categoryId;
+            _currentConfidenceScore = result.confidence;
           });
         }
-      } catch (_) {
-        /* ignorar errores de ML */
+      } catch (e) {
+        print("Error en carga: $e");
       }
     });
   }
@@ -188,7 +190,7 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
 
         double finalScore = _currentConfidenceScore;
         if (transaction.categoryId != _selectedCategoryId) {
-          finalScore = 1.0;
+          finalScore = 0.0;
         }
 
         final predictionPayload = Prediction(
@@ -297,7 +299,11 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: _selectedAccountId,
+                    value: null,
+                    hint: const Text(
+                      'Selecciona una cuenta',
+                      style: TextStyle(color: AppTheme.textSecondary),
+                    ),
                     onChanged: (v) => setState(() => _selectedAccountId = v),
                     items: _accounts
                         .map(
@@ -327,6 +333,10 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
                   DropdownButtonFormField<int>(
                     key: ValueKey(_selectedCategoryId),
                     value: _selectedCategoryId,
+                    hint: const Text(
+                      'Selecciona una categoría',
+                      style: TextStyle(color: AppTheme.textSecondary),
+                    ),
                     onChanged: (v) => setState(() => _selectedCategoryId = v),
                     items: _categories
                         .map(

@@ -19,9 +19,33 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   Future<List<Budget>>? _budgetsFuture;
   Future<List<Category>>? _categoriesFuture;
 
+  // Variables de estado para el control de filtrado temporal
+  late int _selectedMonth;
+  late int _selectedYear;
+
+  final List<String> _monthsNames = [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ];
+
   @override
   void initState() {
     super.initState();
+    // Inicializar el filtro por defecto con el periodo actual del dispositivo
+    final now = DateTime.now();
+    _selectedMonth = now.month;
+    _selectedYear = now.year;
+
     _loadSession();
   }
 
@@ -36,7 +60,13 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
     setState(() {
       _currentUser = user;
-      _budgetsFuture = ExpensesDI.budgetService.getBudgetsByUserId(user.id);
+      // Usar tu nuevo método optimizado por periodos en el arranque
+      _budgetsFuture = ExpensesDI.budgetService
+          .getBudgetByUserIdAndMonthAndYear(
+            user.id,
+            _selectedMonth,
+            _selectedYear,
+          );
       _categoriesFuture = ExpensesDI.categoryService.getCategories();
     });
   }
@@ -49,8 +79,25 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     }
 
     setState(() {
-      _budgetsFuture = ExpensesDI.budgetService.getBudgetsByUserId(user.id);
+      // Al recargar se respeta el mes y año que el usuario tenga seleccionado actualmente
+      _budgetsFuture = ExpensesDI.budgetService
+          .getBudgetByUserIdAndMonthAndYear(
+            user.id,
+            _selectedMonth,
+            _selectedYear,
+          );
       _categoriesFuture = ExpensesDI.categoryService.getCategories();
+    });
+  }
+
+  // Método auxiliar para actualizar el filtro desde la UI
+  void _onPeriodChanged(int month, int year) {
+    if (_currentUser == null) return;
+    setState(() {
+      _selectedMonth = month;
+      _selectedYear = year;
+      _budgetsFuture = ExpensesDI.budgetService
+          .getBudgetByUserIdAndMonthAndYear(_currentUser!.id, month, year);
     });
   }
 
@@ -123,8 +170,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
             return Column(
               children: [
+                // Cabecera superior: Título y Botón "Nuevo"
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -163,6 +211,77 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                     ],
                   ),
                 ),
+
+                // FILTRO TEMPORAL: Selector de mes y año con diseño Dark Premium
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF12213A),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_month,
+                              color: Color(0xFF2DD4BF),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Periodo consultado:',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: _selectedMonth,
+                            dropdownColor: const Color(0xFF12213A),
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: AppTheme.primaryGreen,
+                            ),
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            items: List.generate(12, (index) {
+                              return DropdownMenuItem<int>(
+                                value: index + 1,
+                                child: Text(
+                                  '${_monthsNames[index]} $_selectedYear',
+                                ),
+                              );
+                            }),
+                            onChanged: (int? newMonth) {
+                              if (newMonth != null) {
+                                _onPeriodChanged(newMonth, _selectedYear);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Listado de Tarjetas de Presupuestos
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: _reload,
@@ -172,21 +291,31 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                             children: [
                               SizedBox(
                                 height:
-                                    MediaQuery.of(context).size.height * 0.28,
+                                    MediaQuery.of(context).size.height * 0.22,
                               ),
                               Center(
-                                child: Text(
-                                  'No hay presupuestos todavía',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondary,
-                                  ),
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      '📅',
+                                      style: TextStyle(fontSize: 32),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'No hay presupuestos configurados\npara este mes histórico.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           )
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             itemCount: budgets.length,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 12),

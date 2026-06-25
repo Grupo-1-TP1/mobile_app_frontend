@@ -169,4 +169,16 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     );
     return model.toEntity();
   }
+
+  @override
+  Future<List<Budget>> getBudgetByUserIdAndMonthAndYear(int userId, int month, int year) async {
+    final models = await remoteDataSource.getBudgetByUserIdAndMonthAndYear(userId, month, year);
+    return models.map((model) => model.toEntity()).toList();
+  }
+
+  @override 
+  Future<List<Transaction>> getTransactionsByUserIdAndMonthAndYear(int userId, int month, int year) async {
+    final models = await remoteDataSource.getTransactionsByUserIdAndMonthAndYear(userId, month, year);
+    return models.map((model) => model.toEntity()).toList();
+  }
 }
