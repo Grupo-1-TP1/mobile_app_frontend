@@ -14,6 +14,20 @@ class TransactionService {
     return repository.createTransaction(transaction);
   }
 
+  Future<Transaction> updateTransaction(
+    int transactionId,
+    int categoryId,
+    double amount,
+    String description,
+  ) {
+    return repository.updateTransaction(
+      transactionId,
+      categoryId,
+      amount,
+      description,
+    );
+  }
+
   Future<void> deleteTransaction(int transactionId) {
     return repository.deleteTransaction(transactionId);
   }

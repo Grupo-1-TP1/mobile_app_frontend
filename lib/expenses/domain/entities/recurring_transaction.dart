@@ -46,7 +46,7 @@ class RecurringTransaction extends Equatable {
       'userId': userId,
       'accountId': accountId,
       'categoryId': categoryId,
-      'savingGoalId': savingGoalId,
+      if (savingGoalId != null) 'savingGoalId': savingGoalId,
       'type': type,
       'amount': amount,
       'description': description,

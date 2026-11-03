@@ -41,10 +41,106 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
 
   // NUEVAS VARIABLES PARA TRANSACCIONES RECURRENTES
   bool _isRecurring = false;
-  String _selectedFrequency = 'monthly'; // Valor por defecto
-  final List<String> _frequencies = ['daily', 'weekly', 'monthly', 'yearly'];
+  String _selectedFrequency = 'MONTHLY'; // Valor por defecto
+  final List<String> _frequencies = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
 
   double _currentConfidenceScore = 1.0;
+
+  String _frequencyLabel(String frequency) {
+    switch (frequency) {
+      case 'DAILY':
+        return 'Diario';
+      case 'WEEKLY':
+        return 'Semanal';
+      case 'YEARLY':
+        return 'Anual';
+      default:
+        return 'Mensual';
+    }
+  }
+
+  Future<void> _configureRecurringTransaction() async {
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    DateTime dialogDate = _isRecurring
+        ? selectedDate
+        : DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+    String dialogFrequency = _selectedFrequency;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Configurar recurrencia'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: dialogFrequency,
+                decoration: const InputDecoration(labelText: 'Frecuencia'),
+                items: _frequencies
+                    .map(
+                      (frequency) => DropdownMenuItem<String>(
+                        value: frequency,
+                        child: Text(_frequencyLabel(frequency)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => dialogFrequency = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Próxima fecha de ejecución'),
+                subtitle: Text(
+                  '${dialogDate.day}/${dialogDate.month}/${dialogDate.year}',
+                ),
+                trailing: const Icon(Icons.calendar_month),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: dialogDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2100),
+                  );
+                  if (date != null) {
+                    setDialogState(() => dialogDate = date);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, {
+                'frequency': dialogFrequency,
+                'date': dialogDate,
+              }),
+              child: const Text('Aplicar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      if (result == null) {
+        _isRecurring = false;
+        return;
+      }
+      _isRecurring = true;
+      _selectedFrequency = result['frequency'] as String;
+      selectedDate = result['date'] as DateTime;
+    });
+  }
 
   @override
   void initState() {
@@ -79,9 +175,7 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
         _accounts = accounts;
         _categories = categories;
         _selectedAccountId = accounts.isNotEmpty ? accounts.first.id : null;
-        _selectedCategoryId = categories.isNotEmpty
-            ? categories.first.id
-            : null;
+        _selectedCategoryId = null;
         _loading = false;
       });
     } catch (e) {
@@ -95,22 +189,30 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
 
   void _onDescriptionChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
+    if (_selectedCategoryId != null && mounted) {
+      setState(() => _selectedCategoryId = null);
+    }
     _debounce = Timer(const Duration(milliseconds: 700), () async {
       final text = descriptionController.text.trim();
-      if (text.length < 3) return;
-      if (!expenseClassifierService.isInitialized) return;
+      if (text.length < 3 || !expenseClassifierService.isInitialized) {
+        if (mounted) {
+          setState(() => _selectedCategoryId = null);
+        }
+        return;
+      }
 
       try {
         final ClassificationResult result = await expenseClassifierService
             .classifyExpense(text);
 
-        if (_categories.any((c) => c.id == result.categoryId)) {
-          if (!mounted) return;
-          setState(() {
-            _selectedCategoryId = result.categoryId;
-            _currentConfidenceScore = result.confidence;
-          });
-        }
+        if (!mounted) return;
+        setState(() {
+          _selectedCategoryId =
+              _categories.any((category) => category.id == result.categoryId)
+              ? result.categoryId
+              : null;
+          _currentConfidenceScore = result.confidence;
+        });
       } catch (e) {
         print("Error en carga: $e");
       }
@@ -133,6 +235,17 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
       return;
     }
 
+    if (descriptionController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ingresa una descripción para categorizar la transacción',
+          ),
+        ),
+      );
+      return;
+    }
+
     if (_selectedAccountId == null) {
       ScaffoldMessenger.of(
         context,
@@ -141,9 +254,13 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
     }
 
     if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecciona una categoría')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Espera a que la descripción sea categorizada automáticamente',
+          ),
+        ),
+      );
       return;
     }
 
@@ -151,6 +268,7 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
 
     try {
       final typeString = widget.type == 'income' ? 'income' : 'expense';
+      final recurringType = typeString.toUpperCase();
       final cleanDescription = descriptionController.text.trim().isEmpty
           ? 'Transacción sin descripción'
           : descriptionController.text.trim();
@@ -161,10 +279,10 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
           userId: _currentUser!.id,
           accountId: _selectedAccountId!,
           categoryId: _selectedCategoryId!,
-          type: typeString,
+          type: recurringType,
           amount: amount,
           description: cleanDescription,
-          frequency: _selectedFrequency.toUpperCase(),
+          frequency: _selectedFrequency,
           nextExecutionDate: selectedDate,
         );
 
@@ -223,9 +341,19 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Error al guardar'),
+          content: SingleChildScrollView(child: SelectableText(e.toString())),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -322,46 +450,26 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Categoría',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    key: ValueKey(_selectedCategoryId),
-                    value: _selectedCategoryId,
-                    hint: const Text(
-                      'Selecciona una categoría',
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    onChanged: (v) => setState(() => _selectedCategoryId = v),
-                    items: _categories
-                        .map(
-                          (category) => DropdownMenuItem<int>(
-                            value: category.id,
-                            child: Text(category.name),
-                          ),
-                        )
-                        .toList(),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppTheme.cardBg,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   CustomTextField(
                     label: 'Descripción',
                     controller: descriptionController,
                   ),
                   const SizedBox(height: 16),
+                  if (_selectedCategoryId != null)
+                    Text(
+                      'Categoría detectada: ${_categories.firstWhere((category) => category.id == _selectedCategoryId).name}',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    )
+                  else
+                    const Text(
+                      'Escribe una descripción para categorizar automáticamente',
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  const SizedBox(height: 16),
 
-                  // COMPONENTE NUEVO: CONFIGURACIÓN DE RECURRENCIA
                   Container(
                     decoration: BoxDecoration(
                       color: AppTheme.cardBg,
@@ -383,110 +491,78 @@ class _RegisterTransactionScreenState extends State<RegisterTransactionScreen> {
                           ),
                           value: _isRecurring,
                           activeColor: AppTheme.accentBlue,
-                          onChanged: (bool value) {
-                            setState(() {
-                              _isRecurring = value;
-                            });
+                          onChanged: (bool value) async {
+                            if (value) {
+                              await _configureRecurringTransaction();
+                            } else if (mounted) {
+                              setState(() => _isRecurring = false);
+                            }
                           },
                         ),
-                        if (_isRecurring) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: 16,
-                              right: 16,
-                              bottom: 16,
+                        if (_isRecurring)
+                          ListTile(
+                            title: Text(
+                              '${_frequencyLabel(_selectedFrequency)} · '
+                              '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Divider(color: Colors.grey),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Frecuencia',
-                                  style: TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 8),
-                                DropdownButtonFormField<String>(
-                                  value: _selectedFrequency,
-                                  onChanged: (v) =>
-                                      setState(() => _selectedFrequency = v!),
-                                  items: _frequencies
-                                      .map(
-                                        (f) => DropdownMenuItem<String>(
-                                          value: f,
-                                          child: Text(
-                                            f == 'daily'
-                                                ? 'Diario'
-                                                : f == 'weekly'
-                                                ? 'Semanal'
-                                                : f == 'monthly'
-                                                ? 'Mensual'
-                                                : 'Anual',
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: AppTheme.darkBg,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            subtitle: const Text(
+                              'Toca para editar la recurrencia',
                             ),
+                            trailing: const Icon(Icons.edit_calendar),
+                            onTap: _configureRecurringTransaction,
                           ),
-                        ],
                       ],
                     ),
                   ),
 
-                  const SizedBox(height: 16),
-                  Text(
-                    _isRecurring ? 'Próxima fecha de ejecución' : 'Fecha',
-                    style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: _isRecurring
-                            ? DateTime.now()
-                            : DateTime(2020),
-                        lastDate: DateTime(2100),
-                      );
-                      if (date != null) {
-                        setState(() => selectedDate = date);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardBg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.accentBlue),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                            style: TextStyle(color: AppTheme.textPrimary),
-                          ),
-                          const Icon(Icons.calendar_month, color: Colors.grey),
-                        ],
+                  if (!_isRecurring) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Fecha',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (date != null) {
+                          setState(() => selectedDate = date);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardBg,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.accentBlue),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                              style: TextStyle(color: AppTheme.textPrimary),
+                            ),
+                            const Icon(
+                              Icons.calendar_month,
+                              color: Colors.grey,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,

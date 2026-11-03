@@ -24,7 +24,7 @@ class PushNotificationsService {
       ValueNotifier<List<AppNotification>>(<AppNotification>[]);
 
   bool _initialized = false;
-  int? _currentUserId; // Identificador del usuario autenticado actualmente
+  int? _currentUserId;
 
   Future<void> initialize() async {
     if (_initialized) return;

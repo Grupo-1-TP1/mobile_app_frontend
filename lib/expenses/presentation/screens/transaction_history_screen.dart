@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/account.dart';
+import 'package:mobile_app_frontend/expenses/domain/entities/category.dart';
 import 'package:mobile_app_frontend/expenses/domain/entities/transaction.dart';
 import 'package:mobile_app_frontend/expenses/infrastructure/expenses_di.dart';
 import 'package:mobile_app_frontend/shared/presentation/theme/app_theme.dart';
@@ -17,6 +19,8 @@ class TransactionHistoryScreen extends StatefulWidget {
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   late Future<List<Transaction>> _transactionsFuture;
   User? _currentUser;
+  List<Account> _accounts = [];
+  List<Category> _categories = [];
   bool _redirectedToLogin = false;
 
   // Modificado: Se inicializan como nulos para empezar el Dropdown en "Vacío"
@@ -75,6 +79,27 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             );
       }
     });
+
+    try {
+      final accounts = await ExpensesDI.accountService.getAccountsByUserId(
+        user.id,
+      );
+      final categories = await ExpensesDI.categoryService.getCategories();
+      if (mounted) {
+        setState(() {
+          _accounts = accounts;
+          _categories = categories;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudieron cargar cuentas y categorías: $error'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _reload() async {
@@ -121,6 +146,182 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
+  }
+
+  String _accountName(int accountId) {
+    for (final account in _accounts) {
+      if (account.id == accountId) return account.name;
+    }
+    return 'Desconocida';
+  }
+
+  String _categoryName(int categoryId) {
+    for (final category in _categories) {
+      if (category.id == categoryId) return category.name;
+    }
+    return 'Desconocida';
+  }
+
+  Future<void> _editTransaction(Transaction transaction) async {
+    if (transaction.id == null) return;
+
+    final amountController = TextEditingController(
+      text: transaction.amount.toString(),
+    );
+    final descriptionController = TextEditingController(
+      text: transaction.description ?? '',
+    );
+    int? selectedCategoryId = transaction.categoryId;
+
+    final values = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.cardBg,
+          title: const Text('Editar transacción'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Monto',
+                    prefixText: 'S/ ',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Descripción'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value:
+                      _categories.any(
+                        (category) => category.id == selectedCategoryId,
+                      )
+                      ? selectedCategoryId
+                      : null,
+                  decoration: const InputDecoration(labelText: 'Categoría'),
+                  items: _categories
+                      .where((category) => category.id != null)
+                      .map(
+                        (category) => DropdownMenuItem<int>(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setDialogState(() => selectedCategoryId = value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final amount = double.tryParse(
+                  amountController.text.trim().replaceAll(',', '.'),
+                );
+                if (amount == null ||
+                    amount <= 0 ||
+                    selectedCategoryId == null) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Ingresa un monto y una categoría válidos'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, {
+                  'categoryId': selectedCategoryId,
+                  'amount': amount,
+                  'description': descriptionController.text.trim(),
+                });
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    amountController.dispose();
+    descriptionController.dispose();
+
+    if (values == null || !mounted) return;
+
+    try {
+      await ExpensesDI.transactionService.updateTransaction(
+        transaction.id!,
+        values['categoryId'] as int,
+        values['amount'] as double,
+        values['description'] as String,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transacción actualizada correctamente')),
+      );
+      await _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo actualizar la transacción: $error')),
+      );
+    }
+  }
+
+  Future<void> _deleteTransaction(Transaction transaction) async {
+    if (transaction.id == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.cardBg,
+        title: const Text('Eliminar transacción'),
+        content: const Text(
+          '¿Estás seguro de que deseas eliminar esta transacción? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryRed),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ExpensesDI.transactionService.deleteTransaction(transaction.id!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transacción eliminada correctamente')),
+      );
+      await _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar la transacción: $error')),
+      );
+    }
   }
 
   @override
@@ -307,7 +508,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Cuenta ${transaction.accountId} | Categoría ${transaction.categoryId}',
+                                    '${_accountName(transaction.accountId)} | '
+                                    '${_categoryName(transaction.categoryId)}',
                                     style: const TextStyle(
                                       color: AppTheme.textSecondary,
                                       fontSize: 12,
@@ -324,6 +526,29 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                     : AppTheme.primaryRed,
                                 fontWeight: FontWeight.bold,
                               ),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: AppTheme.textSecondary,
+                              ),
+                              onSelected: (action) {
+                                if (action == 'edit') {
+                                  _editTransaction(transaction);
+                                } else {
+                                  _deleteTransaction(transaction);
+                                }
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Editar'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Eliminar'),
+                                ),
+                              ],
                             ),
                           ],
                         ),

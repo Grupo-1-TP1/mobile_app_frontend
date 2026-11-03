@@ -1,6 +1,12 @@
-# Reglas de protección para TensorFlow Lite (Machine Learning de tu Tesis)
--keep class org.tensorflow.lite.** { *; }
--dontwarn org.tensorflow.lite.**
+# 🤖 Reglas de protección para LiteRT (Antes TensorFlow Lite)
+-keep class com.google.android.litert.** { *; }
+-dontwarn com.google.android.litert.**
 
-# Evitar la optimización agresiva sobre los paquetes de la GPU
--dontwarn org.tensorflow.lite.gpu.**
+# 📈 Reglas de protección para ONNX Runtime (Recomendación de presupuestos)
+-keep class ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
+
+# Reglas generales para evitar que Flutter rompa la serialización de modelos JSON
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}

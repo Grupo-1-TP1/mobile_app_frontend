@@ -20,6 +20,12 @@ abstract class ExpensesRepository {
 
   Future<List<Transaction>> getTransactionsByUserId(int userId);
   Future<Transaction> createTransaction(Transaction transaction);
+  Future<Transaction> updateTransaction(
+    int transactionId,
+    int categoryId,
+    double amount,
+    String description,
+  );
   Future<void> deleteTransaction(int transactionId);
   Future<List<Transaction>> getTransactionsByUserIdAndMonthAndYear(int userId, int month, int year);
 

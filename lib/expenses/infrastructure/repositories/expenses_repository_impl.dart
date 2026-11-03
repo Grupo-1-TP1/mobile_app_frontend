@@ -81,6 +81,22 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   }
 
   @override
+  Future<Transaction> updateTransaction(
+    int transactionId,
+    int categoryId,
+    double amount,
+    String description,
+  ) async {
+    final model = await remoteDataSource.updateTransaction(
+      transactionId,
+      categoryId,
+      amount,
+      description,
+    );
+    return model.toEntity();
+  }
+
+  @override
   Future<void> deleteTransaction(int transactionId) {
     return remoteDataSource.deleteTransaction(transactionId);
   }

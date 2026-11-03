@@ -142,7 +142,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     validator: (v) {
                       if (v == null || v.isEmpty)
                         return 'Contraseña obligatoria';
-                      if (v.length < 6) return 'Mínimo 6 caracteres';
+                      if (v.length < 8) return 'Mínimo 8 caracteres';
+                      if (!RegExp(r'[A-Z]').hasMatch(v)) {
+                        return 'Debe incluir al menos una mayúscula';
+                      }
+                      if (!RegExp(r'[0-9]').hasMatch(v)) {
+                        return 'Debe incluir al menos un número';
+                      }
+                      if (!RegExp(r'[^A-Za-z0-9]').hasMatch(v)) {
+                        return 'Debe incluir al menos un carácter especial';
+                      }
                       return null;
                     },
                   ),

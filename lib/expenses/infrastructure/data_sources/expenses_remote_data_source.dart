@@ -111,7 +111,9 @@ class ExpensesRemoteDataSource {
     _ensureSuccess(response);
   }
 
-  Future<List<RecurringTransactionModel>> getRecurringTransactionsByUserId(int userId) async {
+  Future<List<RecurringTransactionModel>> getRecurringTransactionsByUserId(
+    int userId,
+  ) async {
     final response = await client.get(
       Uri.parse('$baseUrl/api/v1/recurring-transactions/user/$userId'),
       headers: _authHeaders(),
@@ -119,18 +121,32 @@ class ExpensesRemoteDataSource {
     return _readList(response, RecurringTransactionModel.fromJson);
   }
 
-  Future<RecurringTransactionModel> createRecurringTransaction(RecurringTransactionModel model) async {
+  Future<RecurringTransactionModel> createRecurringTransaction(
+    RecurringTransactionModel model,
+  ) async {
+    final requestBody = jsonEncode(model.toJson());
     final response = await client.post(
       Uri.parse('$baseUrl/api/v1/recurring-transactions'),
       headers: _jsonAuthHeaders(),
-      body: jsonEncode(model.toJson()),
+      body: requestBody,
     );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Request failed: ${response.statusCode} '
+        'Payload: $requestBody '
+        'Response: ${response.body}',
+      );
+    }
     return _readSingle(response, RecurringTransactionModel.fromJson);
   }
 
-  Future<RecurringTransactionModel> getRecurringTransactionById(int recurringTransactionId) async {
+  Future<RecurringTransactionModel> getRecurringTransactionById(
+    int recurringTransactionId,
+  ) async {
     final response = await client.get(
-      Uri.parse('$baseUrl/api/v1/recurring-transactions/$recurringTransactionId'),
+      Uri.parse(
+        '$baseUrl/api/v1/recurring-transactions/$recurringTransactionId',
+      ),
       headers: _authHeaders(),
     );
     return _readSingle(response, RecurringTransactionModel.fromJson);
@@ -138,7 +154,9 @@ class ExpensesRemoteDataSource {
 
   Future<void> deleteRecurringTransaction(int recurringTransactionId) async {
     final response = await client.delete(
-      Uri.parse('$baseUrl/api/v1/recurring-transactions/$recurringTransactionId'),
+      Uri.parse(
+        '$baseUrl/api/v1/recurring-transactions/$recurringTransactionId',
+      ),
       headers: _authHeaders(),
     );
     _ensureSuccess(response);
@@ -219,7 +237,9 @@ class ExpensesRemoteDataSource {
     return _readSingle(response, PredictionModel.fromJson);
   }
 
-  Future<RecommendationModel> createRecommendation(RecommendationModel model) async {
+  Future<RecommendationModel> createRecommendation(
+    RecommendationModel model,
+  ) async {
     final response = await client.post(
       Uri.parse('$baseUrl/api/v1/recommendations'),
       headers: _jsonAuthHeaders(),
@@ -228,30 +248,40 @@ class ExpensesRemoteDataSource {
     return _readSingle(response, RecommendationModel.fromJson);
   }
 
-  Future<List<BudgetModel>> getBudgetByUserIdAndMonthAndYear(int userId, int month, int year) async {
+  Future<List<BudgetModel>> getBudgetByUserIdAndMonthAndYear(
+    int userId,
+    int month,
+    int year,
+  ) async {
     final response = await client.get(
-      Uri.parse('$baseUrl/api/v1/budgets/user/$userId/date').replace(queryParameters: {
-        'month': month.toString(),
-        'year': year.toString()
-      }),
+      Uri.parse('$baseUrl/api/v1/budgets/user/$userId/date').replace(
+        queryParameters: {'month': month.toString(), 'year': year.toString()},
+      ),
       headers: _authHeaders(),
     );
     return _readList(response, BudgetModel.fromJson);
   }
 
-  Future<List<TransactionModel>> getTransactionsByUserIdAndMonthAndYear(int userId, int month, int year) async {
+  Future<List<TransactionModel>> getTransactionsByUserIdAndMonthAndYear(
+    int userId,
+    int month,
+    int year,
+  ) async {
     final response = await client.get(
-      Uri.parse('$baseUrl/api/v1/transactions/user/$userId/date').replace(queryParameters: {
-        'month': month.toString(),
-        'year': year.toString()
-      }),
+      Uri.parse('$baseUrl/api/v1/transactions/user/$userId/date').replace(
+        queryParameters: {'month': month.toString(), 'year': year.toString()},
+      ),
       headers: _authHeaders(),
     );
     return _readList(response, TransactionModel.fromJson);
   }
 
-  Future<TransactionModel> updateTransaction(int transactionId, int categoryId, double amount, String description) async {
-    
+  Future<TransactionModel> updateTransaction(
+    int transactionId,
+    int categoryId,
+    double amount,
+    String description,
+  ) async {
     final response = await client.put(
       Uri.parse('$baseUrl/api/v1/transactions/$transactionId'),
       headers: _jsonAuthHeaders(),
@@ -264,30 +294,41 @@ class ExpensesRemoteDataSource {
     return _readSingle(response, TransactionModel.fromJson);
   }
 
-  List<T> _readList<T>(http.Response response, T Function(Map<String, dynamic>) parser) {
+  List<T> _readList<T>(
+    http.Response response,
+    T Function(Map<String, dynamic>) parser,
+  ) {
     _ensureSuccess(response);
     final decoded = jsonDecode(response.body);
 
     if (decoded is List) {
-      return decoded.map((item) => parser(item as Map<String, dynamic>)).toList();
+      return decoded
+          .map((item) => parser(item as Map<String, dynamic>))
+          .toList();
     }
 
     if (decoded is Map<String, dynamic>) {
       final data = decoded['data'];
       if (data is List) {
-        return data.map((item) => parser(item as Map<String, dynamic>)).toList();
+        return data
+            .map((item) => parser(item as Map<String, dynamic>))
+            .toList();
       }
     }
 
     return <T>[];
   }
 
-  T _readSingle<T>(http.Response response, T Function(Map<String, dynamic>) parser) {
+  T _readSingle<T>(
+    http.Response response,
+    T Function(Map<String, dynamic>) parser,
+  ) {
     _ensureSuccess(response);
     final decoded = jsonDecode(response.body);
 
     if (decoded is Map<String, dynamic>) {
-      if (decoded.containsKey('data') && decoded['data'] is Map<String, dynamic>) {
+      if (decoded.containsKey('data') &&
+          decoded['data'] is Map<String, dynamic>) {
         return parser(decoded['data'] as Map<String, dynamic>);
       }
       return parser(decoded);
@@ -298,7 +339,9 @@ class ExpensesRemoteDataSource {
 
   void _ensureSuccess(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Request failed: ${response.statusCode} ${response.body}');
+      throw Exception(
+        'Request failed: ${response.statusCode} ${response.body}',
+      );
     }
   }
 

@@ -46,7 +46,7 @@ class RecurringTransactionModel {
       'userId': userId,
       'accountId': accountId,
       'categoryId': categoryId,
-      'savingGoalId': savingGoalId, // NUEVO
+      if (savingGoalId != null) 'savingGoalId': savingGoalId,
       'type': type,
       'amount': amount,
       'description': description,
